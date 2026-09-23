@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrative-engine.local/schemas/pre_director.schema.json",
+  "title": "PRE Director packet",
+  "type": "object",
+  "required": ["scene", "must_preserve", "character_states", "active_threads", "scene_plan", "user_agency"],
+  "properties": {
+    "scene": { "type": "object" },
+    "must_preserve": { "type": "array", "items": { "type": "string" } },
+    "character_states": { "type": "object" },
+    "relevant_memories": { "type": "array" },
+    "active_threads": { "type": "array" },
+    "due_world_events": { "type": "array" },
+    "scene_plan": {
+      "type": "object",
+      "properties": {
+        "scene_goal": { "type": "string" },
+        "beats": { "type": "array", "items": { "type": "string" } },
+        "tone": { "type": "string" },
+        "avoid": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "user_agency": { "type": "array", "items": { "type": "string" } },
+    "sprite_candidates": { "type": "object" }
+  },
+  "additionalProperties": true
+}

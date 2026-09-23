@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrative-engine.local/schemas/post_director.schema.json",
+  "title": "POST Director result",
+  "type": "object",
+  "required": ["audit", "state_delta", "relationship_delta", "knowledge_delta", "thread_delta", "memory_candidates", "sprite_decisions"],
+  "properties": {
+    "audit": {
+      "type": "object",
+      "required": ["valid", "errors"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "errors": { "type": "array" }
+      },
+      "additionalProperties": true
+    },
+    "state_delta": { "type": "object" },
+    "relationship_delta": { "type": "array" },
+    "knowledge_delta": { "type": "array" },
+    "thread_delta": { "type": "object" },
+    "memory_candidates": { "type": "array" },
+    "sprite_decisions": { "type": "object", "additionalProperties": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

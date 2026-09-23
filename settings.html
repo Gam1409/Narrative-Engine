@@ -1,0 +1,180 @@
+<section id="narrative-engine-settings" class="ne-console" aria-labelledby="ne-title">
+    <header class="ne-console__header">
+        <div>
+            <h3 id="ne-title">Narrative Engine</h3>
+            <p class="ne-console__lede">Continuity, memory, and direction for the current story.</p>
+        </div>
+        <div class="ne-status-stack">
+            <span id="ne-provider-badge" class="ne-status-badge" data-state="unknown" role="status" aria-live="polite">
+                <span class="ne-status-badge__dot" aria-hidden="true"></span>
+                <span data-status-label>Not checked</span>
+            </span>
+            <span class="ne-reconciliation" data-reconciliation data-state="ready" role="status">State up to date</span>
+        </div>
+    </header>
+
+    <div id="ne-notice" class="ne-notice" role="status" aria-live="polite" hidden></div>
+
+    <div class="ne-spine">
+        <section class="ne-spine__section" aria-labelledby="ne-engine-heading">
+            <span class="ne-spine__node" aria-hidden="true"></span>
+            <div class="ne-section-heading">
+                <h4 id="ne-engine-heading">Engine</h4>
+                <label class="ne-switch" for="ne-enabled">
+                    <input id="ne-enabled" type="checkbox" data-setting="enabled">
+                    <span class="ne-switch__track" aria-hidden="true"></span>
+                    <span>Enabled</span>
+                </label>
+            </div>
+
+            <div class="ne-fields">
+                <label class="ne-field" for="ne-provider">
+                    <span>Director provider</span>
+                    <select id="ne-provider" class="text_pole" data-setting="provider">
+                        <option value="openai">OpenAI-compatible</option>
+                        <option value="sillytavern">Current SillyTavern connection</option>
+                        <option value="ollama">Ollama</option>
+                        <option value="server">Server plugin</option>
+                    </select>
+                </label>
+                <label class="ne-field" for="ne-endpoint" data-provider-field="endpoint">
+                    <span>Endpoint</span>
+                    <input id="ne-endpoint" class="text_pole" type="url" inputmode="url" autocomplete="url"
+                        placeholder="https://director.example/v1" data-setting="endpoint">
+                    <small>No API keys are stored in extension settings.</small>
+                </label>
+                <label class="ne-field" for="ne-model">
+                    <span>Model</span>
+                    <input id="ne-model" class="text_pole" type="text" autocomplete="off"
+                        placeholder="qwen3-coder-heretic" data-setting="model">
+                </label>
+            </div>
+            <button type="button" class="menu_button ne-primary-action" data-action="testConnection">
+                Test connection
+            </button>
+        </section>
+
+        <section class="ne-spine__section" aria-labelledby="ne-modules-heading">
+            <span class="ne-spine__node" aria-hidden="true"></span>
+            <div class="ne-section-heading">
+                <div>
+                    <h4 id="ne-modules-heading">Story systems</h4>
+                    <p>Choose which signals the Director maintains.</p>
+                </div>
+            </div>
+            <div class="ne-module-list">
+                <label><input type="checkbox" data-module="continuity"><span>Continuity</span></label>
+                <label><input type="checkbox" data-module="characterState"><span>Character state</span></label>
+                <label><input type="checkbox" data-module="relationships"><span>Relationships</span></label>
+                <label><input type="checkbox" data-module="knowledge"><span>Knowledge / secrets</span></label>
+                <label><input type="checkbox" data-module="plotManager"><span>Plot manager</span></label>
+                <label><input type="checkbox" data-module="worldSimulation"><span>World simulation</span></label>
+                <label><input type="checkbox" data-module="memoryRetrieval"><span>Memory retrieval</span></label>
+                <label><input type="checkbox" data-module="auditor"><span>Auditor</span></label>
+                <label><input type="checkbox" data-module="spriteDirector"><span>Sprite director</span></label>
+            </div>
+        </section>
+
+        <section class="ne-spine__section" aria-labelledby="ne-rhythm-heading">
+            <span class="ne-spine__node" aria-hidden="true"></span>
+            <div class="ne-section-heading">
+                <div>
+                    <h4 id="ne-rhythm-heading">Story rhythm</h4>
+                    <p>Keep the working context bounded as the chat grows.</p>
+                </div>
+            </div>
+            <div class="ne-fields ne-fields--numbers">
+                <label class="ne-field" for="ne-audit-mode">
+                    <span>Audit</span>
+                    <select id="ne-audit-mode" class="text_pole" data-setting="auditMode">
+                        <option value="off">Off</option>
+                        <option value="soft">Soft</option>
+                        <option value="strict">Strict</option>
+                    </select>
+                </label>
+                <label class="ne-field" for="ne-recent-messages">
+                    <span>Recent messages</span>
+                    <input id="ne-recent-messages" class="text_pole" type="number" min="1" max="100" step="1" data-setting="recentMessages">
+                </label>
+                <label class="ne-field" for="ne-memory-top-k">
+                    <span>Memory Top-K</span>
+                    <input id="ne-memory-top-k" class="text_pole" type="number" min="1" max="50" step="1" data-setting="memoryTopK">
+                </label>
+                <label class="ne-field" for="ne-plot-interval">
+                    <span>Plot interval</span>
+                    <input id="ne-plot-interval" class="text_pole" type="number" min="1" max="100" step="1" data-setting="plotInterval">
+                </label>
+                <label class="ne-field" for="ne-memory-consolidation">
+                    <span>Memory consolidation</span>
+                    <input id="ne-memory-consolidation" class="text_pole" type="number" min="2" max="100" step="1" data-setting="memoryConsolidationInterval">
+                </label>
+                <label class="ne-field" for="ne-state-checkpoint">
+                    <span>State checkpoint</span>
+                    <input id="ne-state-checkpoint" class="text_pole" type="number" min="2" max="100" step="1" data-setting="checkpointInterval">
+                </label>
+            </div>
+        </section>
+
+        <section class="ne-spine__section" aria-labelledby="ne-record-heading">
+            <span class="ne-spine__node" aria-hidden="true"></span>
+            <div class="ne-section-heading">
+                <div>
+                    <h4 id="ne-record-heading">Story record</h4>
+                    <p>Inspect or move the state attached to this chat.</p>
+                </div>
+            </div>
+            <div class="ne-action-list" aria-label="Story record actions">
+                <button type="button" class="menu_button" data-action="viewState" data-viewer-title="Current state">View state</button>
+                <button type="button" class="menu_button" data-action="viewTimeline" data-viewer-title="Timeline">View timeline</button>
+                <button type="button" class="menu_button" data-action="viewPlotThreads" data-viewer-title="Plot threads">View plot threads</button>
+                <button type="button" class="menu_button" data-action="viewMemories" data-viewer-title="Memories">View memories</button>
+                <button type="button" class="menu_button" data-action="viewLastDirectorPacket" data-viewer-title="Last Director packet">View last Director packet</button>
+                <button type="button" class="menu_button" data-action="rebuildState">Rebuild state</button>
+                <button type="button" class="menu_button" data-action="exportState">Export state</button>
+                <button type="button" class="menu_button" data-action="chooseImport">Import state</button>
+                <input id="ne-import-state" type="file" accept="application/json,.json" data-import-input hidden>
+            </div>
+        </section>
+
+        <details class="ne-spine__section ne-debug" data-debug-panel>
+            <summary>
+                <span class="ne-spine__node" aria-hidden="true"></span>
+                <span><strong>Director trace</strong><small>Runtime details and recovery tools</small></span>
+                <span class="ne-disclosure" aria-hidden="true"></span>
+            </summary>
+            <div class="ne-debug__body">
+                <dl class="ne-debug-list">
+                    <div><dt>Provider status</dt><dd data-status="providerStatus">Not checked</dd></div>
+                    <div><dt>PRE latency</dt><dd data-status="preLatency">—</dd></div>
+                    <div><dt>POST latency</dt><dd data-status="postLatency">—</dd></div>
+                    <div><dt>Scene</dt><dd data-status="scene">—</dd></div>
+                    <div><dt>Time</dt><dd data-status="time">—</dd></div>
+                    <div><dt>Present characters</dt><dd data-status="presentCharacters">—</dd></div>
+                    <div><dt>Threads</dt><dd data-status="threads">—</dd></div>
+                    <div><dt>Retrieved memories</dt><dd data-status="retrievedMemories">—</dd></div>
+                    <div><dt>Last audit</dt><dd data-status="lastAudit">—</dd></div>
+                    <div><dt>Sprite decisions</dt><dd data-status="spriteDecisions">—</dd></div>
+                    <div><dt>Token estimates</dt><dd data-status="tokenEstimates">—</dd></div>
+                    <div><dt>Errors</dt><dd data-status="errors">None</dd></div>
+                </dl>
+                <div class="ne-action-list ne-action-list--debug" aria-label="Debug actions">
+                    <button type="button" class="menu_button" data-action="clearTransientCache">Clear transient cache</button>
+                    <button type="button" class="menu_button" data-action="rebuildState">Rebuild state</button>
+                    <button type="button" class="menu_button" data-action="exportDiagnostics">Export diagnostics</button>
+                    <button type="button" class="menu_button" data-action="healthCheck">Health check</button>
+                    <button type="button" class="menu_button" data-action="rerunSpriteSelection">Re-run sprite selection</button>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <dialog class="ne-viewer" data-viewer aria-labelledby="ne-viewer-title">
+        <form method="dialog" class="ne-viewer__frame">
+            <header>
+                <h4 id="ne-viewer-title" data-viewer-title>Details</h4>
+                <button type="submit" class="menu_button ne-viewer__close" value="close" aria-label="Close">×</button>
+            </header>
+            <pre tabindex="0" data-viewer-content></pre>
+        </form>
+    </dialog>
+</section>

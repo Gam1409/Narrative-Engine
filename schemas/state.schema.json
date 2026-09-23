@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrative-engine.local/schemas/state.schema.json",
+  "title": "Narrative Engine world state",
+  "type": "object",
+  "required": ["schemaVersion", "scene", "characters", "objects", "timeline", "relationships", "knowledge", "threads"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "scene": { "type": "object" },
+    "characters": { "type": "object" },
+    "objects": { "type": "object" },
+    "locations": { "type": "object" },
+    "timeline": {
+      "type": "object",
+      "required": ["scheduled"],
+      "properties": {
+        "date": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "time": { "type": ["string", "null"], "pattern": "^\\d{2}:\\d{2}$" },
+        "elapsedMinutes": { "type": "number" },
+        "scheduled": { "type": "array" }
+      },
+      "additionalProperties": true
+    },
+    "relationships": { "type": "object" },
+    "knowledge": { "type": "object" },
+    "threads": { "type": "object" },
+    "npc_plans": { "type": "object" },
+    "world_events": { "type": "object" },
+    "provenance": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,23 @@
+{
+  "name": "sillytavern-narrative-engine",
+  "version": "0.1.0",
+  "description": "Two-model continuity, memory, world simulation, audit, and sprite direction for SillyTavern.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.js",
+    "test:server": "node --test --test-isolation=none server-plugin/tests/*.test.js",
+    "check": "node --check index.js"
+  },
+  "keywords": [
+    "sillytavern",
+    "extension",
+    "roleplay",
+    "memory",
+    "continuity"
+  ],
+  "license": "MIT"
+}

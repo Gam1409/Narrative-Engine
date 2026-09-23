@@ -1,0 +1,17 @@
+{
+  "name": "narrative-engine-server",
+  "version": "0.1.0",
+  "description": "Optional server-assisted storage and Director proxy for Narrative Engine",
+  "main": "index.js",
+  "type": "commonjs",
+  "license": "MIT",
+  "engines": {
+    "node": "20.x || 22.x || 23.x || 24.x"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.4.1"
+  }
+}

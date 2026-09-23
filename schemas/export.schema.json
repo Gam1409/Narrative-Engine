@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schemaVersion", "chatFingerprint", "state", "memories", "threads", "timeline", "spriteState"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "chatFingerprint": { "type": "string", "minLength": 1 },
+    "state": { "type": "object" },
+    "memories": { "type": "array" },
+    "threads": { "type": ["array", "object"] },
+    "timeline": { "type": "object" },
+    "spriteState": { "type": "object" }
+  },
+  "additionalProperties": false
+}
