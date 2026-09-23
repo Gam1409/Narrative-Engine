@@ -75,6 +75,80 @@
             </div>
         </section>
 
+        <section class="ne-spine__section" aria-labelledby="ne-profile-heading">
+            <span class="ne-spine__node" aria-hidden="true"></span>
+            <div class="ne-section-heading">
+                <div>
+                    <h4 id="ne-profile-heading">Director profile</h4>
+                    <p>Set how firmly each part of the story is guided.</p>
+                </div>
+            </div>
+            <label class="ne-field" for="ne-prompt-preset">
+                <span>Prompt preset</span>
+                <select id="ne-prompt-preset" class="text_pole" data-setting="promptPreset" aria-describedby="ne-profile-description">
+                    <option value="balanced">Balanced</option>
+                    <option value="strictContinuity">Strict continuity</option>
+                    <option value="livingWorld">Living world</option>
+                    <option value="characterDriven">Character driven</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </label>
+            <p id="ne-profile-description" class="ne-profile-description" data-profile-description></p>
+
+            <fieldset class="ne-variant-matrix" data-custom-variants hidden>
+                <legend>Custom state guidance</legend>
+                <p>Light keeps intervention minimal; strict favors consistency over improvisation.</p>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-continuity">Continuity</label>
+                    <select id="ne-variant-continuity" class="text_pole" data-setting="promptVariants.continuity">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-character-state">Character state</label>
+                    <select id="ne-variant-character-state" class="text_pole" data-setting="promptVariants.characterState">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-relationships">Relationships</label>
+                    <select id="ne-variant-relationships" class="text_pole" data-setting="promptVariants.relationships">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-knowledge">Knowledge / secrets</label>
+                    <select id="ne-variant-knowledge" class="text_pole" data-setting="promptVariants.knowledge">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-plot">Plot manager</label>
+                    <select id="ne-variant-plot" class="text_pole" data-setting="promptVariants.plotManager">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-world">World simulation</label>
+                    <select id="ne-variant-world" class="text_pole" data-setting="promptVariants.worldSimulation">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-memory">Memory retrieval</label>
+                    <select id="ne-variant-memory" class="text_pole" data-setting="promptVariants.memoryRetrieval">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+                <div class="ne-variant-row">
+                    <label for="ne-variant-sprites">Sprite director</label>
+                    <select id="ne-variant-sprites" class="text_pole" data-setting="promptVariants.spriteDirector">
+                        <option value="light">Light</option><option value="balanced">Balanced</option><option value="strict">Strict</option>
+                    </select>
+                </div>
+            </fieldset>
+        </section>
+
         <section class="ne-spine__section" aria-labelledby="ne-rhythm-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
             <div class="ne-section-heading">

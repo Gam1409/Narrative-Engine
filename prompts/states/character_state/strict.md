@@ -1,0 +1,1 @@
+Enforce character voice, established motives, boundaries, and persistent conditions. Every state change needs textual evidence and a reason. Do not infer hidden thoughts, erase consequences, or permit abrupt personality drift.

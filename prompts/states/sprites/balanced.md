@@ -1,0 +1,1 @@
+Choose the exact shortlisted filename that best matches the current speaker's significant expression, pose, and costume. Prefer stability for minor tonal changes and return KEEP when no candidate is clearly better.

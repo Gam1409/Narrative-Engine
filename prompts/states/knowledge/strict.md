@@ -1,0 +1,1 @@
+Enforce strict epistemic isolation. A fact moves between characters only through an explicit observation, message, statement, or established shared source. Track false beliefs separately and flag knowledge teleportation or omniscient dialogue.

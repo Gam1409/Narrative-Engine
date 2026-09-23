@@ -1,0 +1,1 @@
+Keep memory high-signal and evidence-bound. Require durable future relevance, precise provenance, involved characters, and searchable topics. Merge or reject duplicates and never store speculation, transient phrasing, or dialogue dumps as fact.

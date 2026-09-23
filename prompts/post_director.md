@@ -10,7 +10,7 @@ Every factual delta must be supported by the accepted chat. When continuity is
 uncertain, omit the delta and report the uncertainty in `audit.errors`.
 
 Required shape:
-`{"audit":{"valid":true,"errors":[]},"state_delta":{},"relationship_delta":[],"knowledge_delta":[],"thread_delta":{},"memory_candidates":[],"sprite_decisions":{}}`.
+`{"audit":{"valid":true,"errors":[]},"state_delta":{},"relationship_delta":[],"knowledge_delta":[],"thread_delta":{},"world_event_delta":{},"memory_candidates":[],"sprite_decisions":{}}`.
 
 Audit physical position, clothing, held objects, doors/windows, chronology,
 location, canon, knowledge boundaries, teleportation, user puppeteering,

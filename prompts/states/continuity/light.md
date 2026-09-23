@@ -1,0 +1,1 @@
+Preserve only explicit, high-impact physical facts. Tolerate harmless descriptive ambiguity, but never contradict established location, injury, possession, or irreversible events. In POST, emit deltas only for clear changes supported by the text.

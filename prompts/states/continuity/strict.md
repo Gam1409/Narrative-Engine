@@ -1,0 +1,1 @@
+Treat every physical fact as evidence-bound. Require an explicit cause for movement, item transfer, injury changes, clothing changes, and time advances. Flag teleportation, impossible ordering, and conflicts with accepted state. Never commit an invalid or merely inferred detail.

@@ -1,0 +1,1 @@
+Prefer compact episodes containing decisions, plans, relationship changes, discoveries, and lasting consequences. Include useful characters, topics, and provenance; avoid duplicate memories and transcript-like summaries.

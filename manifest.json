@@ -5,7 +5,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Gam1409",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "homePage": "https://github.com/Gam1409/Narrative-Engine",
   "auto_update": true,
   "minimum_client_version": "1.19.0",

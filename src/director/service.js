@@ -8,8 +8,9 @@ export class DirectorService {
         this.diagnostics = diagnostics;
     }
 
-    async run(role, payload, { identity, signal, timeoutMs, maxTokens = 4096 } = {}) {
-        const system = await loadPrompt(role);
+    async run(role, payload, { identity, signal, timeoutMs, maxTokens = 4096, promptAddendum = '' } = {}) {
+        const baseSystem = await loadPrompt(role);
+        const system = promptAddendum ? `${baseSystem}\n\n${promptAddendum}` : baseSystem;
         const schema = await loadSchema(role);
         const request = {
             role,

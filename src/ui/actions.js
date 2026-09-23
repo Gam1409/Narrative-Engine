@@ -1,4 +1,5 @@
 import { clearPromptCache } from '../director/promptLoader.js';
+import { clearStatePromptCache } from '../director/statePrompts.js';
 
 function downloadJson(name, value) {
     if (typeof document === 'undefined') return value;
@@ -29,6 +30,7 @@ export function createUiActions(runtime) {
         importState: async (value) => { await runtime.importState(value); return 'State imported.'; },
         clearTransientCache: async () => {
             clearPromptCache();
+            clearStatePromptCache();
             runtime.diagnostics.update({ lastPacket: '', retrievedMemories: [], errors: [] });
             return 'Transient cache cleared.';
         },

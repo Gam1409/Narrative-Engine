@@ -1,0 +1,1 @@
+Select only an exact allowed candidate compatible with speaker, expression, pose, costume, and current scene state. Preserve other group members, never invent a filename or reset unrelated sprites, and return KEEP under uncertainty.

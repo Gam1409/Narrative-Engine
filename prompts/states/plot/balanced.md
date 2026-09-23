@@ -1,0 +1,1 @@
+Maintain thread status, priority, dependencies, deadlines, and narrative debt. Advance a thread when the current actions naturally support it; otherwise preserve it and surface a concise reminder when due.

@@ -79,6 +79,14 @@
 .ne-module-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .1rem 1rem; }
 .ne-module-list label { display: flex; align-items: center; gap: .45rem; min-height: 2rem; cursor: pointer; }
 
+.ne-profile-description { min-height: 2.5em; margin-top: .45rem !important; color: var(--ne-muted); font-size: .82rem; }
+.ne-variant-matrix { min-width: 0; margin: .85rem 0 0; padding: .15rem 0 0; border: 0; border-top: 1px solid var(--ne-border); }
+.ne-variant-matrix[hidden] { display: none; }
+.ne-variant-matrix legend { padding: .8rem 0 .1rem; font-weight: 600; }
+.ne-variant-matrix > p { margin-bottom: .45rem; color: var(--ne-muted); font-size: .78rem; }
+.ne-variant-row { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(8rem, .7fr); align-items: center; gap: .75rem; min-height: 2.65rem; border-top: 1px solid color-mix(in srgb, var(--ne-border) 65%, transparent); }
+.ne-variant-row select { width: 100%; min-height: 2.1rem; }
+
 .ne-action-list { display: flex; flex-wrap: wrap; gap: .45rem; }
 .ne-action-list .menu_button { flex: 1 1 9rem; min-width: 0; }
 .ne-action-list--debug { padding-top: .9rem; border-top: 1px solid var(--ne-border); }
@@ -115,6 +123,7 @@
     .ne-action-list { flex-direction: column; }
     .ne-action-list .menu_button { flex-basis: auto; width: 100%; }
     .ne-debug-list > div { grid-template-columns: 1fr; gap: .15rem; }
+    .ne-variant-row { grid-template-columns: 1fr; gap: .2rem; padding: .45rem 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,1 @@
+Make world changes deterministic from established causes, clocks, and NPC goals. Preserve schedules and delayed consequences, avoid convenient coincidence, limit output to scene-relevant events, and never use simulation to override user choices.

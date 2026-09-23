@@ -1,0 +1,1 @@
+Apply hard evidence boundaries to relationships. Do not change a pair without an explicit action, statement, or resolved consequence. Preserve asymmetry and unresolved context; never manufacture intimacy, hostility, or numeric movement from tone alone.

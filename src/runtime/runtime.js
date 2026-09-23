@@ -1,5 +1,6 @@
 import { getChatFingerprint, getContext, createRequestIdentity, recentChat, resolveMessageSpeaker, resolveParticipants, messageId } from '../context/stContext.js';
 import { DirectorService } from '../director/service.js';
+import { loadStatePromptBundle } from '../director/statePrompts.js';
 import { loadSchema } from '../director/schemaLoader.js';
 import { buildDirectorPacket } from '../director/packet.js';
 import { EpisodicMemoryStore } from '../memory/store.js';
@@ -174,8 +175,9 @@ export class NarrativeRuntime {
             user_agency: 'Never invent voluntary user actions, thoughts, dialogue, choices, or decisions.',
         };
         try {
+            const promptAddendum = await loadStatePromptBundle(this.settings, 'pre');
             const pre = await this.director.run('pre', payload, {
-                identity, signal: token.signal, timeoutMs: this.settings.preDirectorTimeoutMs,
+                identity, signal: token.signal, timeoutMs: this.settings.preDirectorTimeoutMs, promptAddendum,
             });
             this.gate.assertCurrent(token);
             const packet = buildDirectorPacket(pre, this.settings.packetTokenBudget);
@@ -221,8 +223,9 @@ export class NarrativeRuntime {
             user_agency: 'The RP response must not invent user actions, thoughts, dialogue, or decisions.',
         };
         try {
+            const promptAddendum = await loadStatePromptBundle(this.settings, 'post');
             let post = await this.director.run('post', payload, {
-                identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs,
+                identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum,
             });
             this.gate.assertCurrent(token);
             this.diagnostics.update({ lastAudit: post.audit });
@@ -233,7 +236,7 @@ export class NarrativeRuntime {
                     await context.saveChat?.();
                     context.updateMessageBlock?.(messageIndex, message, { rerenderMessage: true });
                     post = await this.director.run('post', { ...payload, rp_response: rewritten, re_audit: true }, {
-                        identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs,
+                        identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum,
                     });
                     this.gate.assertCurrent(token);
                     this.diagnostics.update({ lastAudit: post.audit });
@@ -328,12 +331,13 @@ export class NarrativeRuntime {
         const identity = createRequestIdentity(context, this.activeGenerationId);
         const token = this.gate.begin(identity);
         try {
+            const promptAddendum = await loadStatePromptBundle(this.settings, 'post');
             const post = await this.director.run('post', {
                 identity, sprite_only: true, state_before: this.stateManager.snapshot(),
                 user_message: '', rp_response: String(message.mes || ''),
                 audit_mode: 'off', sprite_director: true,
                 sprite_candidates: { [resolveMessageSpeaker(message, context).name]: this.spriteManifests.candidatesFor(resolveMessageSpeaker(message, context).name, this.stateManager.snapshot(), 20) },
-            }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs });
+            }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
             this.gate.assertCurrent(token);
             const speaker = resolveMessageSpeaker(message, context).name;
             this.spriteState = await applySpriteDecisions(post.sprite_decisions, {

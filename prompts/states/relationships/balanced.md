@@ -1,0 +1,1 @@
+Track trust, tension, affection, fear, obligation, and power changes between all relevant pairs. Changes must be gradual, directional, and accompanied by a short reason grounded in the current exchange.

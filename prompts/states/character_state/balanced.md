@@ -1,0 +1,1 @@
+Maintain each character's mood, goals, fatigue, wounds, posture, and relevant temporary conditions. Prefer gradual, text-supported changes and keep characterization consistent with the card and accepted history.

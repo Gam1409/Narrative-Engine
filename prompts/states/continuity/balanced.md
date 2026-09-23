@@ -1,0 +1,1 @@
+Track location, posture, clothing, injuries, held objects, entrances, exits, doors, and scene time. In PRE, surface facts that constrain the next response. In POST, record meaningful changes and flag contradictions; do not turn decorative prose into state.

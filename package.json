@@ -1,6 +1,6 @@
 {
   "name": "sillytavern-narrative-engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Two-model continuity, memory, world simulation, audit, and sprite direction for SillyTavern.",
   "type": "module",
   "private": true,

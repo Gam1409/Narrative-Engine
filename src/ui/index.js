@@ -1,3 +1,14 @@
+const DEFAULT_PROMPT_VARIANTS = Object.freeze({
+    continuity: 'balanced',
+    characterState: 'balanced',
+    relationships: 'balanced',
+    knowledge: 'strict',
+    plotManager: 'balanced',
+    worldSimulation: 'balanced',
+    memoryRetrieval: 'balanced',
+    spriteDirector: 'balanced',
+});
+
 const DEFAULT_UI_SETTINGS = Object.freeze({
     enabled: false,
     provider: 'server',
@@ -18,6 +29,16 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     memoryRetrieval: true,
     auditor: true,
     spriteDirector: true,
+    promptPreset: 'balanced',
+    promptVariants: DEFAULT_PROMPT_VARIANTS,
+});
+
+const PROFILE_DESCRIPTIONS = Object.freeze({
+    balanced: 'Even guidance across continuity, characters, plot, and world state.',
+    strictContinuity: 'Prioritizes established facts and memory; plot and world intervention stay light.',
+    livingWorld: 'Lets plot threads and the world advance more actively between character turns.',
+    characterDriven: 'Focuses on character state, relationships, memory, and expressive sprite choices.',
+    custom: 'Tune the guidance level for each story state below.',
 });
 
 const NUMBER_SETTINGS = new Set([
@@ -43,7 +64,30 @@ export function normalizeUiSettings(settings = {}) {
         ...DEFAULT_UI_SETTINGS,
         ...settings,
         ...(settings.modules && typeof settings.modules === 'object' ? settings.modules : {}),
+        promptVariants: {
+            ...DEFAULT_PROMPT_VARIANTS,
+            ...(settings.promptVariants && typeof settings.promptVariants === 'object' ? settings.promptVariants : {}),
+        },
     };
+}
+
+/** Read a dot-delimited setting path. */
+export function getSettingValue(settings, path) {
+    return String(path).split('.').reduce((value, key) => value?.[key], settings);
+}
+
+/** Set a dot-delimited setting path while preserving its sibling values. */
+export function setSettingValue(settings, path, value) {
+    const keys = String(path).split('.').filter(Boolean);
+    if (!keys.length) return settings;
+    let target = settings;
+    for (const key of keys.slice(0, -1)) {
+        const child = target[key];
+        target[key] = child && typeof child === 'object' && !Array.isArray(child) ? child : {};
+        target = target[key];
+    }
+    target[keys.at(-1)] = value;
+    return settings;
 }
 
 /** Convert diagnostic values to bounded, readable text without producing HTML. */
@@ -129,7 +173,7 @@ function readControlValue(control) {
 
 function renderSettings(root, settings) {
     for (const control of root.querySelectorAll('[data-setting]')) {
-        const value = settings[control.dataset.setting];
+        const value = getSettingValue(settings, control.dataset.setting);
         if (control.type === 'checkbox') control.checked = Boolean(value);
         else control.value = value ?? '';
     }
@@ -138,6 +182,10 @@ function renderSettings(root, settings) {
     }
     const endpointField = root.querySelector('[data-provider-field="endpoint"]');
     if (endpointField) endpointField.hidden = settings.provider === 'sillytavern';
+    const customVariants = root.querySelector('[data-custom-variants]');
+    if (customVariants) customVariants.hidden = settings.promptPreset !== 'custom';
+    const profileDescription = root.querySelector('[data-profile-description]');
+    if (profileDescription) profileDescription.textContent = PROFILE_DESCRIPTIONS[settings.promptPreset] ?? PROFILE_DESCRIPTIONS.balanced;
 }
 
 /** Update every debug field. All untrusted values are assigned through textContent. */
@@ -179,7 +227,7 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
     renderUiStatus(panel, status);
 
     const commit = (path, value) => {
-        current[path] = value;
+        setSettingValue(current, path, value);
         renderSettings(panel, current);
         onSettingsChange(current, { path, value });
     };

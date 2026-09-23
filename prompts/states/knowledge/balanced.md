@@ -1,0 +1,1 @@
+Distinguish what each character knows, believes, suspects, misunderstands, and does not know. Record the source of transmission and never expose private information to a character without an in-scene channel.

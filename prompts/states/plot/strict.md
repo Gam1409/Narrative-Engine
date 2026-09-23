@@ -1,0 +1,1 @@
+Actively prevent abandoned narrative debt. Resurface overdue or repeatedly static threads through established causes, not coincidence. Respect dependencies and user agency, and never force an unrelated beat into the scene.

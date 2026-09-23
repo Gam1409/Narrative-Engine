@@ -6,11 +6,43 @@ const { consolidateMemories, mergeState, searchMemories, selectSprite } = requir
 
 const PROMPTS = {
     pre: 'You are the Narrative Engine Director PRE pass. Return strict JSON only. Preserve user agency and canon. Produce compact continuity, relevant memory, active threads, world pressure, and direction.',
-    post: 'You are the Narrative Engine Director POST pass. Return strict JSON only. Audit continuity and user agency, then produce state_delta, relationship_delta, knowledge_delta, thread_delta, memory_candidates, and sprite_decisions.',
+    post: 'You are the Narrative Engine Director POST pass. Return strict JSON only. Audit continuity and user agency, then produce state_delta, relationship_delta, knowledge_delta, thread_delta, world_event_delta, memory_candidates, and sprite_decisions.',
     reconcile: 'You are the Narrative Engine reconciliation pass. Return strict JSON only. Reconcile supplied accepted chat facts with structured state using explicit chat facts as highest priority.',
 };
 
 function asyncRoute(handler) { return (req, res, next) => Promise.resolve(handler(req, res)).catch(next); }
+
+function directorMessages(phase, body, maxBytes) {
+    const fixedPrompt = PROMPTS[phase];
+    if (body.messages === undefined) {
+        const content = body.input ?? body.payload ?? body;
+        return [{ role: 'system', content: fixedPrompt }, { role: 'user', content: safeJson(content, maxBytes) }];
+    }
+    if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 64) {
+        throw Object.assign(new Error('messages must be a non-empty array of at most 64 items'), { status: 400 });
+    }
+    const allowedRoles = new Set(['system', 'user', 'assistant']);
+    const clientSystem = [];
+    const conversation = [];
+    let contentBytes = 0;
+    for (const message of body.messages) {
+        if (!message || typeof message !== 'object' || Array.isArray(message) || !allowedRoles.has(message.role)) {
+            throw Object.assign(new Error('Each message must have a supported role'), { status: 400 });
+        }
+        if (typeof message.content !== 'string' || message.content.length < 1) {
+            throw Object.assign(new Error('Each message must have non-empty string content'), { status: 400 });
+        }
+        contentBytes += Buffer.byteLength(message.content);
+        if (contentBytes > maxBytes) throw Object.assign(new Error('Message content is too large'), { status: 413 });
+        if (message.role === 'system') clientSystem.push(message.content);
+        else conversation.push({ role: message.role, content: message.content });
+    }
+    if (!conversation.length) throw Object.assign(new Error('messages must include a user or assistant message'), { status: 400 });
+    const combinedSystem = clientSystem.length
+        ? `${fixedPrompt}\n\n[CLIENT SYSTEM CONTEXT]\n${clientSystem.join('\n\n')}`
+        : fixedPrompt;
+    return [{ role: 'system', content: combinedSystem }, ...conversation];
+}
 
 function scopeChatId(req, rawId) {
     const id = validateId(rawId, 'chatId');
@@ -33,10 +65,10 @@ function buildRoutes(router, { config, db, provider, logger = console }) {
     for (const phase of ['pre', 'post', 'reconcile']) {
         router.post(`/director/${phase}`, asyncRoute(async (req, res) => {
             const body = assertObject(req.body);
-            const content = body.input ?? body.payload ?? body;
             const started = Date.now();
             try {
-                const result = await provider.complete({ messages: [{ role: 'system', content: PROMPTS[phase] }, { role: 'user', content: safeJson(content, config.bodyLimitBytes) }], maxTokens: phase === 'pre' ? 2000 : 2500 });
+                const messages = directorMessages(phase, body, config.bodyLimitBytes);
+                const result = await provider.complete({ messages, maxTokens: phase === 'pre' ? 2000 : 2500 });
                 const output = result?.choices?.[0]?.message?.content;
                 if (typeof output !== 'string') throw Object.assign(new Error('Director response has no message content'), { status: 502 });
                 res.json({ output, usage: result.usage || null, model: result.model || config.providerModel });
@@ -85,4 +117,4 @@ function buildRoutes(router, { config, db, provider, logger = console }) {
     return router;
 }
 
-module.exports = { PROMPTS, buildRoutes, scopeChatId };
+module.exports = { PROMPTS, buildRoutes, directorMessages, scopeChatId };
