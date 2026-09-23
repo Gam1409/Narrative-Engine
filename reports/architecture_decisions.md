@@ -43,9 +43,12 @@ nearest checkpoint plus per-message deltas.
 
 ## Security boundary
 
-Browser mode supports unauthenticated local endpoints, Ollama, or the current ST
-connection. API keys are server-only. The server plugin uses a configured fixed
-provider URL, DNS/IP SSRF checks, request size limits, rate limiting, timeouts,
+Browser mode supports unauthenticated local endpoints, Ollama, the current ST
+connection, or a saved SillyTavern Connection Profile. Profile mode delegates
+OpenRouter and other keyed endpoints to ST's `ConnectionManagerRequestService`,
+so credentials remain inside SillyTavern. Direct API keys are server-only. The
+server plugin uses a configured fixed provider URL, DNS/IP SSRF checks, request
+size limits, rate limiting, timeouts,
 schema validation, parameterized SQLite statements, and redacted logs. It never
 accepts arbitrary filesystem paths or evaluates generated code.
 

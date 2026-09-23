@@ -72,6 +72,8 @@
 .ne-field { display: grid; gap: .28rem; min-width: 0; font-size: .86rem; }
 .ne-field > span, .ne-module-list span { color: var(--ne-text); }
 .ne-field small { color: var(--ne-muted); }
+.ne-connection-profile-status[data-state="missing"],
+.ne-connection-profile-status[data-state="unavailable"] { color: var(--ne-warn); }
 .ne-field input, .ne-field select { width: 100%; min-height: 2.25rem; }
 .ne-field[hidden] { display: none; }
 

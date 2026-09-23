@@ -14,8 +14,9 @@
 | JSON recovery | Local extraction/repair and exactly one external retry test |
 | Server routes/security | Route inventory, user scoping, SSRF, limits, provider retry, state/memory/sprite tests |
 | SQLite runtime | Real `better-sqlite3` create/write/read/close smoke test on Node 24 |
+| Connection Profiles | OpenRouter-style profile delegation, safe metadata projection, missing/unavailable profile errors, and UI label tests |
 
-Client suite: 36 tests. Server suite: 18 tests. All passed on 2026-09-23.
+Client suite: 39 tests. Server suite: 18 tests. All passed on 2026-09-23.
 All JavaScript files passed `node --check`, the root entry module imported, all
 project JSON parsed, `git diff --check` passed, and npm package dry-run completed.
 

@@ -6,7 +6,7 @@
 
 Проект не является форком SillyTavern и не подменяет его основной генератор. Он подключается через публичный API расширений и при необходимости использует отдельный серверный плагин для безопасного хранения ключа и SQLite.
 
-> Текущая версия: **0.2.0**. Совместимость проверялась по коду SillyTavern `release` 1.19.0, commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`. Автоматические тесты пройдены; финальная проверка с конкретной моделью, карточками и спрайтами выполняется уже в установленном SillyTavern.
+> Текущая версия: **0.3.0**. Совместимость проверялась по коду SillyTavern `release` 1.19.0, commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`. Автоматические тесты пройдены; финальная проверка с конкретной моделью, карточками и спрайтами выполняется уже в установленном SillyTavern.
 
 ## Содержание
 
@@ -140,7 +140,7 @@ flowchart LR
 
 3. Подтвердите установку и перезагрузите SillyTavern.
 4. Откройте **Extensions → Narrative Engine**.
-5. Выберите провайдера, модель, профиль и нужные Story systems.
+5. Выберите провайдера, его модель или Connection Profile и нужные Story systems.
 6. Нажмите **Test connection**.
 7. После успешной проверки включите **Enabled**.
 
@@ -153,11 +153,32 @@ flowchart LR
 | **Server plugin** | Рекомендуемый вариант для удалённого API и постоянной установки | Ключ хранится только в env сервера, состояние — в SQLite |
 | **OpenAI-compatible** | Локальный endpoint без авторизации | Прямой запрос браузера; endpoint должен разрешать CORS |
 | **Ollama** | Локальная Ollama | Работает через локальный HTTP API |
+| **SillyTavern connection profile** | OpenRouter, Anthropic, Custom endpoint и другие профили ST | Использует отдельный сохранённый профиль, не переключая основное RP-подключение |
 | **Current SillyTavern connection** | Быстрая проба без отдельного endpoint | Использует текущую конфигурацию ST и зависит от её возможностей |
 
-В браузерной части намеренно **нет поля API key**: `extensionSettings` сохраняются открытым текстом. Для сервиса с секретным ключом используйте серверный плагин.
+В браузерной части намеренно **нет поля API key**: `extensionSettings` сохраняются открытым текстом. Для сервиса с секретным ключом используйте Connection Profile SillyTavern или серверный плагин.
 
 Рекомендуется отдельная модель, которая стабильно возвращает JSON и хорошо следует схеме. Температура Режиссёра по умолчанию низкая (`0.2`), потому что здесь важнее воспроизводимость.
+
+### OpenRouter и другие Connection Profiles SillyTavern
+
+Narrative Engine умеет выполнять PRE/POST через официальный `ConnectionManagerRequestService`. Режиссёр получает отдельный профиль, а основная RP-модель продолжает работать через своё текущее подключение.
+
+Для OpenRouter:
+
+1. В SillyTavern откройте **API Connections → Chat Completion → OpenRouter**.
+2. Авторизуйте OpenRouter или сохраните API key средствами SillyTavern.
+3. Выберите модель и нужный preset.
+4. Сохраните настройку как **Connection Profile**, например `Narrative Director — OpenRouter`.
+5. В Narrative Engine выберите provider **SillyTavern connection profile**.
+6. Выберите созданный профиль в поле **Connection profile**.
+7. Нажмите **Test connection**, затем включите движок.
+
+Тем же способом поддерживаются Custom OpenAI-compatible endpoint, Anthropic и совместимые Text Completion профили. Конкретный набор определяется самим Connection Manager. Модель, URL, secret ID, generation preset, instruct preset и proxy берутся из выбранного профиля; Narrative Engine передаёт только сообщения Режиссёра, лимит ответа и безопасный override температуры.
+
+Ключи не копируются в настройки Narrative Engine и не отображаются в списке: расширение хранит только ID профиля. Удаление выбранного профиля переводит подключение в понятное состояние ошибки, пока не будет выбран другой.
+
+**Test connection** для профиля выполняет бесплатную локальную проверку наличия и совместимости профиля, но не отправляет тестовую генерацию, чтобы случайно не расходовать баланс. Первый реальный PRE-запрос остаётся фактической сетевой проверкой.
 
 ## Установка серверного плагина
 
@@ -293,6 +314,14 @@ Loopback endpoint разрешён для локальных моделей. П�
 - включите `enableServerPlugins: true`;
 - перезапустите сервер, а не только вкладку браузера.
 
+### Connection Profile отсутствует или не работает
+
+- убедитесь, что встроенный Connection Manager включён;
+- создайте профиль с поддерживаемым Chat Completion или Text Completion API;
+- после изменения профиля выберите его заново в Narrative Engine;
+- ошибка `401` означает, что ключ или авторизация профиля требуют обновления в SillyTavern;
+- локальная проверка профиля не расходует токены, а реальное соединение проверяется первым PRE-запросом.
+
 ### Спрайт не меняется
 
 - включите Character Expressions;
@@ -355,7 +384,7 @@ Narrative-Engine/
 │  ├─ runtime/        # жизненный цикл хода и диагностика
 │  ├─ state/          # состояние, delta, timeline, checkpoints
 │  ├─ memory/         # retrieval и browser/server storage
-│  ├─ providers/      # ST, OpenAI-compatible, Ollama, server proxy
+│  ├─ providers/      # ST profiles, OpenAI-compatible, Ollama, server proxy
 │  ├─ sprites/        # manifests, shortlist и применение
 │  └─ ui/             # консоль настроек и действия
 ├─ prompts/states/    # 8 состояний × light/balanced/strict

@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     provider: 'server',
     endpoint: 'http://127.0.0.1:8080/v1',
     model: '',
+    connectionProfileId: '',
     continuity: true,
     characterState: true,
     relationships: true,
@@ -44,7 +45,7 @@ function clampNumber(value, minimum, maximum, fallback) {
 /** Returns a normalized copy. Secrets are deliberately not part of the schema. */
 export function normalizeSettings(candidate = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...(candidate && typeof candidate === 'object' ? candidate : {}) };
-    const providers = new Set(['server', 'openai', 'ollama', 'sillytavern']);
+    const providers = new Set(['server', 'openai', 'ollama', 'sillytavern', 'connectionProfile']);
     const auditModes = new Set(['off', 'soft', 'strict']);
     const promptPresets = new Set(['balanced', 'strictContinuity', 'livingWorld', 'characterDriven', 'custom']);
     const promptVariants = new Set(['light', 'balanced', 'strict']);
@@ -57,6 +58,7 @@ export function normalizeSettings(candidate = {}) {
     ]));
     merged.endpoint = String(merged.endpoint || DEFAULT_SETTINGS.endpoint).trim();
     merged.model = String(merged.model || '').trim();
+    merged.connectionProfileId = String(merged.connectionProfileId || '').trim().slice(0, 200);
     merged.recentMessages = clampNumber(merged.recentMessages, 2, 50, 12);
     merged.memoryTopK = clampNumber(merged.memoryTopK, 1, 20, 6);
     merged.plotInterval = clampNumber(merged.plotInterval, 1, 50, 3);
@@ -69,7 +71,13 @@ export function normalizeSettings(candidate = {}) {
     merged.healthTimeoutMs = clampNumber(merged.healthTimeoutMs, 500, 30000, 5000);
     merged.temperature = clampNumber(merged.temperature, 0, 2, 0.2);
     delete merged.apiKey;
+    delete merged.api_key;
     delete merged.authorization;
+    delete merged.secret;
+    delete merged.secretId;
+    delete merged.secret_id;
+    delete merged['secret-id'];
+    delete merged.token;
     return merged;
 }
 

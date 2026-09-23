@@ -1,6 +1,6 @@
 {
   "name": "narrative-engine-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Optional server-assisted storage and Director proxy for Narrative Engine",
   "main": "index.js",
   "type": "commonjs",

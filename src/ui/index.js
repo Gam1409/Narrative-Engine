@@ -14,6 +14,7 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     provider: 'server',
     endpoint: '',
     model: '',
+    connectionProfileId: '',
     auditMode: 'soft',
     recentMessages: 12,
     memoryTopK: 6,
@@ -100,6 +101,21 @@ export function formatDebugValue(value, fallback = '—') {
     return String(value);
 }
 
+function boundedProfileText(value, fallback = '') {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) return fallback;
+    return text.length > 80 ? `${text.slice(0, 77)}…` : text;
+}
+
+/** Build a plain-text label without exposing credentials or other profile fields. */
+export function formatConnectionProfileLabel(profile = {}) {
+    const name = boundedProfileText(profile.name, 'Unnamed profile');
+    const api = boundedProfileText(profile.api);
+    const model = boundedProfileText(profile.model);
+    const hint = [api, model].filter(Boolean).join(' · ');
+    return hint ? `${name} — ${hint}` : name;
+}
+
 /** Register the five required functions through SillyTavern's public debug API. */
 export function registerDebugFunctions(context, actions = {}) {
     if (typeof context?.registerDebugFunction !== 'function') return [];
@@ -181,7 +197,11 @@ function renderSettings(root, settings) {
         control.checked = Boolean(settings[control.dataset.module]);
     }
     const endpointField = root.querySelector('[data-provider-field="endpoint"]');
-    if (endpointField) endpointField.hidden = settings.provider === 'sillytavern';
+    if (endpointField) endpointField.hidden = settings.provider === 'sillytavern' || settings.provider === 'connectionProfile';
+    const modelField = root.querySelector('[data-provider-field="model"]');
+    if (modelField) modelField.hidden = settings.provider === 'connectionProfile';
+    const connectionProfileField = root.querySelector('[data-provider-field="connectionProfile"]');
+    if (connectionProfileField) connectionProfileField.hidden = settings.provider !== 'connectionProfile';
     const customVariants = root.querySelector('[data-custom-variants]');
     if (customVariants) customVariants.hidden = settings.promptPreset !== 'custom';
     const profileDescription = root.querySelector('[data-profile-description]');
@@ -223,12 +243,88 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
     const current = normalizeUiSettings(settings);
     const controller = new AbortController();
     const { signal } = controller;
+    const profileSelect = panel.querySelector('#ne-connection-profile');
+    const profileStatus = panel.querySelector('#ne-connection-profile-status');
+    const profileSubscriptions = [];
+    let profileRefreshId = 0;
+    let profileCount = 0;
+    let destroyed = false;
+
+    const setProfileStatus = (message, state) => {
+        if (!profileStatus) return;
+        profileStatus.textContent = message;
+        profileStatus.dataset.state = state;
+    };
+
+    const updateProfileStatus = ({ available = true, count = profileCount } = {}) => {
+        if (!profileSelect || !profileStatus) return;
+        const selectedProfileId = String(current.connectionProfileId ?? '').trim();
+        if (!available) {
+            setProfileStatus('Connection profiles are unavailable in this SillyTavern version.', 'unavailable');
+        } else if (selectedProfileId && !Array.from(profileSelect.options).some(option => option.value === selectedProfileId)) {
+            setProfileStatus('The selected connection profile is missing. Choose another profile.', 'missing');
+        } else if (!count) {
+            setProfileStatus('No supported connection profiles found. Create one in SillyTavern Connections.', 'empty');
+        } else if (!current.enabled) {
+            setProfileStatus('Narrative Engine is disabled. This profile will be used when enabled.', 'disabled');
+        } else if (!selectedProfileId) {
+            setProfileStatus('Choose the SillyTavern profile used by the Director.', 'missing');
+        } else {
+            setProfileStatus('Credentials stay in SillyTavern and are not copied into extension settings.', 'ready');
+        }
+    };
+
+    const refreshConnectionProfiles = async () => {
+        if (!profileSelect) return;
+        const refreshId = ++profileRefreshId;
+        const service = context?.ConnectionManagerRequestService;
+        if (typeof service?.getSupportedProfiles !== 'function') {
+            profileCount = 0;
+            profileSelect.replaceChildren();
+            profileSelect.disabled = true;
+            updateProfileStatus({ available: false, count: 0 });
+            return;
+        }
+        profileSelect.disabled = true;
+        setProfileStatus('Loading connection profiles…', 'loading');
+        try {
+            const rawProfiles = await service.getSupportedProfiles();
+            if (destroyed || refreshId !== profileRefreshId) return;
+            const profiles = Array.isArray(rawProfiles) ? rawProfiles : [];
+            const seenIds = new Set();
+            const placeholder = profileSelect.ownerDocument.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select a Director connection profile';
+            const options = [placeholder];
+            for (const profile of profiles) {
+                const id = String(profile?.id ?? '').trim();
+                if (!id || seenIds.has(id)) continue;
+                seenIds.add(id);
+                const option = profileSelect.ownerDocument.createElement('option');
+                option.value = id;
+                option.textContent = formatConnectionProfileLabel(profile);
+                options.push(option);
+            }
+            profileSelect.replaceChildren(...options);
+            profileSelect.value = String(current.connectionProfileId ?? '').trim();
+            profileSelect.disabled = options.length === 1;
+            profileCount = options.length - 1;
+            updateProfileStatus();
+        } catch {
+            if (destroyed || refreshId !== profileRefreshId) return;
+            profileCount = 0;
+            profileSelect.replaceChildren();
+            profileSelect.disabled = true;
+            updateProfileStatus({ available: false, count: 0 });
+        }
+    };
     renderSettings(panel, current);
     renderUiStatus(panel, status);
 
     const commit = (path, value) => {
         setSettingValue(current, path, value);
         renderSettings(panel, current);
+        updateProfileStatus();
         onSettingsChange(current, { path, value });
     };
 
@@ -285,10 +381,29 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
     }, { signal });
 
     registerDebugFunctions(context, actions);
+    const eventTypes = context?.eventTypes || context?.event_types || {};
+    for (const eventName of [
+        eventTypes.CONNECTION_PROFILE_CREATED,
+        eventTypes.CONNECTION_PROFILE_UPDATED,
+        eventTypes.CONNECTION_PROFILE_DELETED,
+    ]) {
+        if (!eventName || typeof context?.eventSource?.on !== 'function') continue;
+        context.eventSource.on(eventName, refreshConnectionProfiles);
+        profileSubscriptions.push([eventName, refreshConnectionProfiles]);
+    }
+    void refreshConnectionProfiles();
     return {
         settings: current,
         updateStatus(nextStatus) { renderUiStatus(panel, nextStatus); },
-        destroy() { controller.abort(); },
+        destroy() {
+            destroyed = true;
+            profileRefreshId += 1;
+            controller.abort();
+            for (const [eventName, handler] of profileSubscriptions) {
+                if (typeof context.eventSource?.removeListener === 'function') context.eventSource.removeListener(eventName, handler);
+                else context.eventSource?.off?.(eventName, handler);
+            }
+        },
     };
 }
 

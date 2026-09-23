@@ -33,9 +33,19 @@
                     <select id="ne-provider" class="text_pole" data-setting="provider">
                         <option value="openai">OpenAI-compatible</option>
                         <option value="sillytavern">Current SillyTavern connection</option>
+                        <option value="connectionProfile">SillyTavern connection profile (OpenRouter / other endpoints)</option>
                         <option value="ollama">Ollama</option>
                         <option value="server">Server plugin</option>
                     </select>
+                </label>
+                <label class="ne-field" for="ne-connection-profile" data-provider-field="connectionProfile" hidden>
+                    <span>Connection profile</span>
+                    <select id="ne-connection-profile" class="text_pole" data-setting="connectionProfileId"
+                        aria-describedby="ne-connection-profile-status" disabled>
+                        <option value="">Loading connection profiles…</option>
+                    </select>
+                    <small id="ne-connection-profile-status" class="ne-connection-profile-status" data-state="loading"
+                        role="status" aria-live="polite">Loading connection profiles…</small>
                 </label>
                 <label class="ne-field" for="ne-endpoint" data-provider-field="endpoint">
                     <span>Endpoint</span>
@@ -43,7 +53,7 @@
                         placeholder="https://director.example/v1" data-setting="endpoint">
                     <small>No API keys are stored in extension settings.</small>
                 </label>
-                <label class="ne-field" for="ne-model">
+                <label class="ne-field" for="ne-model" data-provider-field="model">
                     <span>Model</span>
                     <input id="ne-model" class="text_pole" type="text" autocomplete="off"
                         placeholder="qwen3-coder-heretic" data-setting="model">
