@@ -1,0 +1,17 @@
+[
+    {
+        "name":  "Narrative_Engine_TZ.md",
+        "sha256":  "F0FDAB253A730ED772CDCDA36F58101A24E0DF45703F2FAF718A710C54F6746B",
+        "bytes":  38879
+    },
+    {
+        "name":  "Narrative_Engine_TZ_v2.md",
+        "sha256":  "66CB26A3F8014165E1A70EBF0447694A9BA1683C8B602F22F5C2A7B523FCBEFA",
+        "bytes":  66611
+    },
+    {
+        "name":  "Narrative_Engine_TZ_v2-1.md",
+        "sha256":  "5EDAACB2F718CBFFCB01518A2A71DCD174B70F6C202517E8963768F9343981DB",
+        "bytes":  91390
+    }
+]

@@ -3,31 +3,150 @@
   "$id": "https://narrative-engine.local/schemas/state.schema.json",
   "title": "Narrative Engine world state",
   "type": "object",
-  "required": ["schemaVersion", "scene", "characters", "objects", "timeline", "relationships", "knowledge", "threads"],
+  "required": [
+    "schemaVersion",
+    "scene",
+    "characters",
+    "objects",
+    "timeline",
+    "relationships",
+    "knowledge",
+    "threads",
+    "entities",
+    "registry"
+  ],
   "properties": {
-    "schemaVersion": { "type": "integer", "minimum": 1 },
-    "revision": { "type": "integer", "minimum": 0 },
-    "scene": { "type": "object" },
-    "characters": { "type": "object" },
-    "objects": { "type": "object" },
-    "locations": { "type": "object" },
+    "schemaVersion": {
+      "const": 2
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scene": {
+      "type": "object"
+    },
+    "characters": {
+      "type": "object"
+    },
+    "objects": {
+      "type": "object"
+    },
+    "locations": {
+      "type": "object"
+    },
     "timeline": {
       "type": "object",
-      "required": ["scheduled"],
+      "required": [
+        "scheduled"
+      ],
       "properties": {
-        "date": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-        "time": { "type": ["string", "null"], "pattern": "^\\d{2}:\\d{2}$" },
-        "elapsedMinutes": { "type": "number" },
-        "scheduled": { "type": "array" }
+        "date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{2}:\\d{2}$"
+        },
+        "elapsedMinutes": {
+          "type": "number"
+        },
+        "scheduled": {
+          "type": "array"
+        }
       },
       "additionalProperties": true
     },
-    "relationships": { "type": "object" },
-    "knowledge": { "type": "object" },
-    "threads": { "type": "object" },
-    "npc_plans": { "type": "object" },
-    "world_events": { "type": "object" },
-    "provenance": { "type": "object" }
+    "relationships": {
+      "type": "object"
+    },
+    "knowledge": {
+      "type": "object"
+    },
+    "threads": {
+      "type": "object"
+    },
+    "npc_plans": {
+      "type": "object"
+    },
+    "world_events": {
+      "type": "object"
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "aliases",
+          "campaignId",
+          "params",
+          "relations",
+          "status",
+          "owner",
+          "position",
+          "holder",
+          "location",
+          "container",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "params": {
+            "type": "object"
+          },
+          "relations": {
+            "type": "array"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "registry": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "entityTypes",
+        "parameters"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "entityTypes": {
+          "type": "object"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": true
 }

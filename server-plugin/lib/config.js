@@ -12,6 +12,9 @@ function loadConfig(env = process.env, dataRoot = globalThis.DATA_ROOT) {
         ? path.resolve(env.NARRATIVE_ENGINE_STORAGE_DIR)
         : path.join(dataRoot || process.cwd(), '_storage', 'narrative-engine');
     return Object.freeze({
+        embeddingUrl: env.NARRATIVE_ENGINE_EMBEDDING_URL || '',
+        embeddingModel: env.NARRATIVE_ENGINE_EMBEDDING_MODEL || '',
+        embeddingKey: env.NARRATIVE_ENGINE_EMBEDDING_API_KEY || '',
         providerUrl: env.NARRATIVE_ENGINE_DIRECTOR_URL || '',
         providerKey: env.NARRATIVE_ENGINE_DIRECTOR_API_KEY || '',
         providerModel: env.NARRATIVE_ENGINE_DIRECTOR_MODEL || '',

@@ -79,6 +79,7 @@
                 <label><input type="checkbox" data-module="knowledge"><span>Knowledge / secrets</span></label>
                 <label><input type="checkbox" data-module="plotManager"><span>Plot manager</span></label>
                 <label><input type="checkbox" data-module="worldSimulation"><span>World simulation</span></label>
+                <label><input type="checkbox" data-setting="embeddingSearch"><span>Semantic memory search (server embeddings)</span></label>
                 <label><input type="checkbox" data-module="memoryRetrieval"><span>Memory retrieval</span></label>
                 <label><input type="checkbox" data-module="auditor"><span>Auditor</span></label>
                 <label><input type="checkbox" data-module="spriteDirector"><span>Sprite director</span></label>
@@ -176,9 +177,9 @@
                         <option value="strict">Strict</option>
                     </select>
                 </label>
-                <label class="ne-field" for="ne-recent-messages">
-                    <span>Recent messages</span>
-                    <input id="ne-recent-messages" class="text_pole" type="number" min="1" max="100" step="1" data-setting="recentMessages">
+                <label class="ne-field" for="ne-minimum-confidence">
+                    <span>Minimum confidence</span>
+                    <input id="ne-minimum-confidence" class="text_pole" type="number" min="0" max="1" step="0.05" data-setting="minimumConfidence" title="Less certain changes remain pending. Missing confidence is treated as 0.5.">
                 </label>
                 <label class="ne-field" for="ne-memory-top-k">
                     <span>Memory Top-K</span>
@@ -198,6 +199,17 @@
                 </label>
             </div>
         </section>
+
+        <details class="ne-spine__section"><summary>Memory ranking weights</summary>
+            <div class="ne-fields ne-fields--numbers">
+                    <label class="ne-field"><span>Similarity</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.semantic"></label>
+                    <label class="ne-field"><span>Importance</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.importance"></label>
+                    <label class="ne-field"><span>Present characters</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.entities"></label>
+                    <label class="ne-field"><span>Location</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.location"></label>
+                    <label class="ne-field"><span>Game-time recency</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.recency"></label>
+                    <label class="ne-field"><span>Historical penalty</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.old"></label>
+            </div>
+        </details>
 
         <section class="ne-spine__section" aria-labelledby="ne-record-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
@@ -239,12 +251,18 @@
                     <div><dt>Last audit</dt><dd data-status="lastAudit">—</dd></div>
                     <div><dt>Sprite decisions</dt><dd data-status="spriteDecisions">—</dd></div>
                     <div><dt>Token estimates</dt><dd data-status="tokenEstimates">—</dd></div>
+                    <div><dt>Storage</dt><dd data-status="storageStatus">Not checked</dd></div>
+                    <div><dt>Memory search</dt><dd data-status="retrievalMode">Not run</dd></div>
+                    <div><dt>Memory scope</dt><dd data-status="memoryScope">Session only</dd></div>
+                    <div><dt>Director usage</dt><dd data-status="usage">Not measured</dd></div>
+                    <div><dt>Latency distribution</dt><dd data-status="latencyStats">Not measured</dd></div>
                     <div><dt>Errors</dt><dd data-status="errors">None</dd></div>
                 </dl>
                 <div class="ne-action-list ne-action-list--debug" aria-label="Debug actions">
                     <button type="button" class="menu_button" data-action="clearTransientCache">Clear transient cache</button>
                     <button type="button" class="menu_button" data-action="rebuildState">Rebuild state</button>
                     <button type="button" class="menu_button" data-action="exportDiagnostics">Export diagnostics</button>
+                    <button type="button" class="menu_button" data-action="recoverStorage">Reconnect storage</button>
                     <button type="button" class="menu_button" data-action="healthCheck">Health check</button>
                     <button type="button" class="menu_button" data-action="rerunSpriteSelection">Re-run sprite selection</button>
                 </div>

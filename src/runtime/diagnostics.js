@@ -9,6 +9,8 @@ export class Diagnostics {
         this.retrievedMemories = [];
         this.errors = [];
         this.listeners = new Set();
+        this.samples = { pre: [], post: [], reconcile: [] };
+        this.usage = { calls: 0, reportedTokens: 0, callsWithoutUsage: 0, jsonRepairs: 0 };
     }
 
     update(patch) {
@@ -16,7 +18,18 @@ export class Diagnostics {
         this.emit();
     }
 
+    recordUsage(usage) {
+        this.usage.calls++;
+        const total = usage?.total_tokens ?? (usage && (usage.prompt_tokens ?? usage.input_tokens) !== undefined
+            ? Number(usage.prompt_tokens ?? usage.input_tokens) + Number(usage.completion_tokens ?? usage.output_tokens ?? 0) : null);
+        if (Number.isFinite(total)) this.usage.reportedTokens += total;
+        else this.usage.callsWithoutUsage++;
+    }
+
+    recordRepair() { this.usage.jsonRepairs++; }
+
     recordLatency(role, value) {
+        this.samples[role] = [...(this.samples[role] || []).slice(-499), value];
         this.latency = { ...this.latency, [role]: value };
         this.emit();
     }
@@ -43,7 +56,13 @@ export class Diagnostics {
             status: this.status, provider: this.provider, latency: { ...this.latency },
             lastPacket: this.lastPacket, lastAudit: this.lastAudit,
             lastSprites: { ...this.lastSprites }, retrievedMemories: [...this.retrievedMemories],
-            errors: [...this.errors],
+            retrievalMode: this.retrievalMode || 'not_run', embeddingError: this.embeddingError || null,
+            errors: [...this.errors], usage: { ...this.usage },
+            latencyStats: Object.fromEntries(Object.entries(this.samples).map(([role, samples]) => {
+                const sorted = [...samples].sort((a,b) => a-b);
+                const percentile = p => sorted.length ? sorted[Math.ceil(sorted.length*p)-1] : null;
+                return [role, { count: sorted.length, p50: percentile(0.5), p95: percentile(0.95) }];
+            })),
         };
     }
 }

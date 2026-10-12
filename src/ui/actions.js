@@ -40,6 +40,7 @@ export function createUiActions(runtime) {
             stateRevision: runtime.stateManager.state.revision,
             settings: { ...runtime.settings, endpoint: runtime.settings.endpoint ? '[configured]' : '' },
         }),
+        recoverStorage: async () => runtime.recoverStorage(),
         healthCheck: async () => runtime.healthCheck(),
         rerunSpriteSelection: async () => runtime.rerunSpriteSelection(),
     };
@@ -57,6 +58,9 @@ export function runtimeUiStatus(runtime) {
         threads: state.threads || {}, retrievedMemories: diagnostics.retrievedMemories,
         lastAudit: diagnostics.lastAudit, spriteDecisions: diagnostics.lastSprites,
         tokenEstimates: diagnostics.lastPacket ? Math.ceil(diagnostics.lastPacket.length / 4) : 0,
+        storageStatus: !runtime.stateReady ? 'Unavailable: no verified snapshot' : runtime.storage?.degraded ? 'Degraded: local copy in use' : 'Connected',
+        retrievalMode: diagnostics.retrievalMode, memoryScope: runtime.stateManager?.scope,
+        usage: diagnostics.usage, latencyStats: diagnostics.latencyStats,
         errors: diagnostics.errors, pendingReconciliation: Boolean(runtime.context?.chatMetadata?.narrative_engine?.pendingReconciliation),
     };
 }

@@ -1,0 +1,157 @@
+{
+  "generatedAt": "2026-10-12T08:14:38.734Z",
+  "node": "v24.14.0",
+  "mode": "synthetic audit; false means requirement not met, not live acceptance",
+  "observations": [
+    {
+      "id": "C2",
+      "requirementMet": false,
+      "observed": {
+        "relevant": 0.13658536585365855,
+        "unrelated": 0.13658536585365855
+      }
+    },
+    {
+      "id": "C3",
+      "requirementMet": false,
+      "observed": {
+        "memoriesAfterDelete": 1,
+        "swordAfterDelete": null
+      }
+    },
+    {
+      "id": "C5",
+      "requirementMet": false,
+      "observed": {
+        "revision": 0,
+        "pendingReconciliation": false
+      }
+    },
+    {
+      "id": "C6",
+      "requirementMet": false,
+      "observed": {
+        "invalidReferencesAccepted": true,
+        "conflictingPositionAccepted": true
+      }
+    },
+    {
+      "id": "G12-same-runtime",
+      "requirementMet": true,
+      "observed": {
+        "directorCalls": 1
+      }
+    },
+    {
+      "id": "C8",
+      "requirementMet": false,
+      "observed": {
+        "minutesAfterReloadAndRender": 10,
+        "directorCalls": 2
+      }
+    },
+    {
+      "id": "C7",
+      "requirementMet": false,
+      "observed": {
+        "confidence": 1,
+        "status": null
+      }
+    },
+    {
+      "id": "C9-edit",
+      "requirementMet": false,
+      "observed": {
+        "holderAfterEdit": "Anna",
+        "directorCalls": 1
+      }
+    },
+    {
+      "id": "C10",
+      "requirementMet": false,
+      "observed": {
+        "returnedIds": [
+          "secret",
+          "old"
+        ]
+      }
+    },
+    {
+      "id": "C11",
+      "requirementMet": false,
+      "observed": {
+        "beforeAt": "2026-10-12T08:14:38.328Z",
+        "afterAt": "2026-10-12T08:14:38.349Z",
+        "chatPreservesAt": false
+      }
+    },
+    {
+      "id": "A1-stale-checkpoint",
+      "requirementMet": false,
+      "observed": {
+        "firstRebuild": "Bob",
+        "laterRebuild": "Anna"
+      }
+    },
+    {
+      "id": "A2-card-defaults",
+      "requirementMet": true,
+      "observed": {
+        "charactersAfterRebuild": {
+          "Anna": {
+            "trait": "careful"
+          }
+        }
+      }
+    },
+    {
+      "id": "C4",
+      "requirementMet": false,
+      "observed": {
+        "writes": 100,
+        "retainedDeltaCopies": 5050,
+        "sourceDeltas": 100,
+        "transport": "mock HTTP, real adapter"
+      }
+    },
+    {
+      "id": "A3-fallback",
+      "requirementMet": false,
+      "observed": {
+        "online": {
+          "revision": 9
+        },
+        "offline": null,
+        "degraded": true
+      }
+    },
+    {
+      "id": "environment-better-sqlite3",
+      "requirementMet": true,
+      "observed": {
+        "available": true
+      }
+    },
+    {
+      "id": "C4-real-sqlite",
+      "requirementMet": false,
+      "observed": {
+        "driverVersion": "12.4.1",
+        "snapshots": 100,
+        "deltaCopies": 5050,
+        "structuredDeltaRows": 0,
+        "latestDeltaCount": 100
+      }
+    },
+    {
+      "id": "A4-outage-rebuild",
+      "requirementMet": false,
+      "observed": {
+        "pendingBefore": true,
+        "pendingAfter": true,
+        "revisionAfterRebuild": 0,
+        "status": "ready"
+      }
+    }
+  ]
+}

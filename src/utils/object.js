@@ -13,6 +13,7 @@ export function mergeImmutable(base, patch) {
     if (!isPlainObject(patch)) return clone(patch);
     const result = isPlainObject(base) ? clone(base) : {};
     for (const [key, value] of Object.entries(patch)) {
+        if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new Error('Unsafe object key');
         if (value === undefined) continue;
         if (isPlainObject(value) && value.$delete === true) {
             delete result[key];
@@ -30,4 +31,11 @@ export function deepFreeze(value) {
     Object.freeze(value);
     for (const child of Object.values(value)) deepFreeze(child);
     return value;
+}
+
+/** Stable JSON representation for comparing durable snapshots across transports. */
+export function canonicalStringify(value) {
+    const normalize = item => Array.isArray(item) ? item.map(normalize)
+        : item && typeof item === 'object' ? Object.fromEntries(Object.keys(item).sort().map(k => [k, normalize(item[k])])) : item;
+    return JSON.stringify(normalize(value));
 }

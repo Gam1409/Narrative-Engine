@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "World operations (Director allowlist)",
+  "type": "array",
+  "maxItems": 200,
+  "items": {
+    "anyOf": [
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity"
+        ],
+        "properties": {
+          "op": {
+            "const": "create_entity"
+          },
+          "entity": {
+            "type": "object",
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "campaignId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sessionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "params": {
+                "type": "object"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity",
+          "to"
+        ],
+        "properties": {
+          "op": {
+            "const": "move"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "rel",
+                  "target"
+                ],
+                "properties": {
+                  "rel": {
+                    "enum": [
+                      "on",
+                      "in",
+                      "inside",
+                      "holds",
+                      "wears"
+                    ]
+                  },
+                  "target": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity",
+          "owner"
+        ],
+        "properties": {
+          "op": {
+            "const": "set_owner"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity",
+          "key",
+          "value"
+        ],
+        "properties": {
+          "op": {
+            "const": "set"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {}
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity",
+          "key",
+          "amount"
+        ],
+        "properties": {
+          "op": {
+            "const": "adjust"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amount": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity"
+        ],
+        "properties": {
+          "op": {
+            "const": "archive_entity"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity",
+          "rel",
+          "target"
+        ],
+        "properties": {
+          "op": {
+            "const": "link"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "op",
+          "entity",
+          "rel",
+          "target"
+        ],
+        "properties": {
+          "op": {
+            "const": "unlink"
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    ]
+  }
+}

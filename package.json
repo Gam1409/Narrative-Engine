@@ -1,6 +1,6 @@
 {
   "name": "sillytavern-narrative-engine",
-  "version": "0.3.0",
+  "version": "0.6.0",
   "description": "Two-model continuity, memory, world simulation, audit, and sprite direction for SillyTavern.",
   "type": "module",
   "private": true,
@@ -8,8 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test --test-isolation=none tests/*.test.js",
-    "test:server": "node --test --test-isolation=none server-plugin/tests/*.test.js",
+    "test": "node server-plugin/run-tests.cjs tests",
+    "test:server": "node server-plugin/run-tests.cjs server-plugin/tests",
     "check": "node --check index.js"
   },
   "keywords": [

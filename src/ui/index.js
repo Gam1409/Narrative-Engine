@@ -16,8 +16,11 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     model: '',
     connectionProfileId: '',
     auditMode: 'soft',
+    minimumConfidence: 0.5,
     recentMessages: 12,
     memoryTopK: 6,
+    embeddingSearch: false,
+    memoryWeights: { semantic: 0.55, importance: 0.2, entities: 0.1, location: 0.1, recency: 0.05, old: 0.3 },
     plotInterval: 3,
     memoryConsolidationInterval: 8,
     checkpointInterval: 10,
@@ -43,12 +46,13 @@ const PROFILE_DESCRIPTIONS = Object.freeze({
 });
 
 const NUMBER_SETTINGS = new Set([
-    'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'checkpointInterval',
+    'memoryWeights.semantic', 'memoryWeights.importance', 'memoryWeights.entities', 'memoryWeights.location', 'memoryWeights.recency', 'memoryWeights.old',
+    'minimumConfidence', 'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'checkpointInterval',
 ]);
 
 const STATUS_FIELDS = [
     'providerStatus', 'preLatency', 'postLatency', 'scene', 'time', 'presentCharacters',
-    'threads', 'retrievedMemories', 'lastAudit', 'spriteDecisions', 'tokenEstimates', 'errors',
+    'threads', 'retrievedMemories', 'lastAudit', 'spriteDecisions', 'tokenEstimates', 'errors', 'storageStatus', 'retrievalMode', 'memoryScope', 'usage', 'latencyStats',
 ];
 
 const DEBUG_FUNCTIONS = Object.freeze([
@@ -64,6 +68,7 @@ export function normalizeUiSettings(settings = {}) {
     return {
         ...DEFAULT_UI_SETTINGS,
         ...settings,
+        memoryWeights: { ...DEFAULT_UI_SETTINGS.memoryWeights, ...settings.memoryWeights },
         ...(settings.modules && typeof settings.modules === 'object' ? settings.modules : {}),
         promptVariants: {
             ...DEFAULT_PROMPT_VARIANTS,

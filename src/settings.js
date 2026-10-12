@@ -24,8 +24,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
     promptPreset: 'balanced',
     promptVariants: DEFAULT_PROMPT_VARIANTS,
     auditMode: 'soft',
+    minimumConfidence: 0.5,
     recentMessages: 12,
     memoryTopK: 6,
+    embeddingSearch: false,
+    memoryWeights: { semantic: 0.55, importance: 0.2, entities: 0.1, location: 0.1, recency: 0.05, old: 0.3 },
     plotInterval: 3,
     memoryConsolidationInterval: 8,
     checkpointInterval: 10,
@@ -60,6 +63,8 @@ export function normalizeSettings(candidate = {}) {
     merged.model = String(merged.model || '').trim();
     merged.connectionProfileId = String(merged.connectionProfileId || '').trim().slice(0, 200);
     merged.recentMessages = clampNumber(merged.recentMessages, 2, 50, 12);
+    merged.embeddingSearch = merged.embeddingSearch === true;
+    merged.memoryWeights = Object.fromEntries(Object.entries(DEFAULT_SETTINGS.memoryWeights).map(([key, value]) => [key, clampNumber(merged.memoryWeights?.[key], 0, 2, value)]));
     merged.memoryTopK = clampNumber(merged.memoryTopK, 1, 20, 6);
     merged.plotInterval = clampNumber(merged.plotInterval, 1, 50, 3);
     merged.memoryConsolidationInterval = clampNumber(merged.memoryConsolidationInterval, 2, 100, 8);
@@ -69,6 +74,7 @@ export function normalizeSettings(candidate = {}) {
     merged.preDirectorTimeoutMs = clampNumber(merged.preDirectorTimeoutMs, 1000, 120000, 45000);
     merged.postDirectorTimeoutMs = clampNumber(merged.postDirectorTimeoutMs, 1000, 180000, 60000);
     merged.healthTimeoutMs = clampNumber(merged.healthTimeoutMs, 500, 30000, 5000);
+    merged.minimumConfidence = clampNumber(merged.minimumConfidence, 0, 1, 0.5);
     merged.temperature = clampNumber(merged.temperature, 0, 2, 0.2);
     delete merged.apiKey;
     delete merged.api_key;

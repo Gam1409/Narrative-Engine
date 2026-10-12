@@ -10,7 +10,7 @@ const stateSchema = JSON.parse(fs.readFileSync(new URL('../schemas/state.schema.
 
 test('initial and migrated state validate against schema', () => {
     assert.equal(validateSchema(stateSchema, createInitialState()).valid, true);
-    assert.equal(migrateState({ scene: { location: 'Room 167' } }).schemaVersion, 1);
+    assert.equal(migrateState({ scene: { location: 'Room 167' } }).schemaVersion, 2);
     assert.throws(() => migrateState({ schemaVersion: 999 }), /newer/);
 });
 

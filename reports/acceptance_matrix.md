@@ -1,5 +1,13 @@
 # Acceptance matrix
 
+Stage 3: [0.6.0 implementation and local verification](stage3_implementation.md). **91 client / 35 server tests pass**. G3/G18/G20, Unicode retrieval, real sqlite-vec/FTS5, cache isolation and English commands without aliases are covered. Real multilingual model quality remains unmeasured.
+
+Stage 2: [0.5.0 local verification](stage2_implementation.md), **71 client / 31 server tests**. G1/G2 typed ownership and movement, G13 migration backup, parameter registry and author branch replay pass. SQLite tests use the real driver; no live ST/model claim.
+
+Stage 1 implementation: [0.4.0 local verification](stage1_implementation.md), 65 client and 21 server tests. Synthetic runtime regressions and real SQLite migration checks pass; no live ST claim.
+
+Current audit: [Stage 0, 2026-10-12](stage0_audit.md). The historical evidence below does not establish complete edit/swipe/delete, memory, or fallback correctness. The new audit reproduces defects despite all 57 existing tests passing. Live checks are excluded from the current scope by the user.
+
 ## Automated evidence
 
 | Scenario | Evidence |

@@ -8,3 +8,7 @@ coverage/
 *.sqlite-wal
 .DS_Store
 dist/
+
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.*.bak

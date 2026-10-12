@@ -59,3 +59,15 @@ type and color variables. A single vertical "story spine" connects operational
 sections; provider health and pending reconciliation are visible without a grid
 of decorative cards. Motion is limited to user-triggered disclosure, keyboard
 focus is explicit, and reduced-motion preferences are respected.
+
+## Stage 3: SQLite search and international usage (2026-10-12)
+
+Use the existing SQLite deployment with FTS5 and optional sqlite-vec 0.1.9. The official [Node integration](https://alexgarcia.xyz/sqlite-vec/js.html) supplies a better-sqlite3 load function; the Windows x64 package was installed and actually loaded here. A binary Float32 scan over 10,000 synthetic 384-dimensional vectors measured about 15 ms p50; the earlier JSON representation took about 2.3 seconds. Keep the simpler SQLite service until larger-scale measurements justify another database.
+
+The embedding provider is configured separately on the server. Cache keys include user/chat scope, endpoint/model identity and text SHA-256. Only eligible candidate text enters the embedding call. Native extension absence permits portable cosine scoring; provider absence permits filtered lexical retrieval.
+
+Lexical fallback is Unicode word/character overlap, with no Russian-only dictionary or assumed story language. Cross-language semantic retrieval depends on the configured multilingual embedding model. No real model-quality claim is made without live evidence.
+
+Session transfer is an explicit snapshot before the first accepted turn. Knowledge filtering remains mandatory in off/soft/strict audit modes. Shared PRE uses the intersection of scene and actual recipient permissions. Raw historical text and unannotated private state are not reintroduced into that shared packet.
+
+Public slash commands use full English action names, with no aliases. See [implementation and commands](stage3_implementation.md).

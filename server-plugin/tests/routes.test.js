@@ -26,7 +26,8 @@ test('all required server routes are registered', () => {
     assert.deepEqual(routes, [
         'GET /health',
         'POST /director/pre', 'POST /director/post', 'POST /director/reconcile',
-        'POST /memory/search', 'POST /memory/consolidate',
+        'POST /memory/embeddings', 'POST /memory/search', 'POST /memory/consolidate',
+        'GET /storage/:chatId/:field', 'POST /storage/:chatId/:field', 'GET /storage/:chatId',
         'GET /state/:chatId', 'POST /state/:chatId', 'POST /state/:chatId/rebuild',
         'POST /sprites/select',
     ]);

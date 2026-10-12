@@ -1,3 +1,8 @@
+import { normalizeMemory, projectState, sceneViewers } from '../memory/policy.js';
+import { textHash } from '../memory/semantic.js';
+import { VectorSearch } from '../memory/vectorSearch.js';
+import { configureSession } from '../memory/session.js';
+import { branchReferences } from '../state/history.js';
 import { getChatFingerprint, getContext, createRequestIdentity, recentChat, resolveMessageSpeaker, resolveParticipants, messageId } from '../context/stContext.js';
 import { DirectorService } from '../director/service.js';
 import { loadStatePromptBundle } from '../director/statePrompts.js';
@@ -28,6 +33,7 @@ function byId(items, key) {
 
 function combineDelta(post, settings) {
     const rawState = post.state_delta || {};
+    if (rawState.ops !== undefined) throw new Error('Use top-level ops in POST');
     const delta = settings.continuity || settings.characterState
         ? { ...rawState }
         : Object.fromEntries(Object.entries(rawState).filter(([key]) => ['time_advance_minutes', 'timeline', 'scene'].includes(key)));
@@ -37,6 +43,7 @@ function combineDelta(post, settings) {
     if (settings.knowledge && Object.keys(knowledge).length) delta.knowledge = knowledge;
     if (settings.plotManager && post.thread_delta && typeof post.thread_delta === 'object') delta.threads = post.thread_delta;
     if (settings.worldSimulation && post.world_event_delta && typeof post.world_event_delta === 'object') delta.world_events = post.world_event_delta;
+    if (post.ops !== undefined) delta.ops = settings.continuity || settings.characterState ? post.ops : [];
     return delta;
 }
 
@@ -52,6 +59,8 @@ export class NarrativeRuntime {
         this.gate = new RequestGate();
         this.processed = new Set();
         this.activeGenerationId = null;
+        this.operationQueue = Promise.resolve();
+        this.stateReady = false;
         this.spriteState = {};
     }
 
@@ -59,14 +68,28 @@ export class NarrativeRuntime {
         this.context = context;
         this.settings = getSettings(context);
         this.storage = this.createStorage(context);
-        this.spriteManifests = new SpriteManifestStore({ storage: this.storage });
-        await this.loadChat(context);
+        this.spriteManifests = new SpriteManifestStore({ storage: createStorageAdapter(globalThis.SillyTavern?.libs?.localforage) });
+        try { await this.loadChat(context); } catch (error) { this.diagnostics.error(error, 'storage'); }
         this.recreateProvider(context);
-        this.diagnostics.update({ status: this.settings.enabled ? 'ready' : 'disabled', provider: this.settings.provider });
+        this.diagnostics.update({ status: this.settings.enabled ? (this.stateReady ? 'ready' : 'degraded') : 'disabled', provider: this.settings.provider });
         return this;
     }
 
-    async loadChat(context = getContext()) {
+    enqueue(operation) {
+        const result = this.operationQueue.then(operation);
+        this.operationQueue = result.catch(() => {});
+        return result;
+    }
+
+    loadChat(context = getContext()) {
+        this.gate.switchContext({ chatFingerprint: getChatFingerprint(context) });
+        return this.enqueue(() => this.loadChatNow(context));
+    }
+
+    async loadChatNow(context = getContext()) {
+        if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
+        this.context = context;
+        this.stateReady = false;
         const fingerprint = getChatFingerprint(context);
         const stateSchema = await loadSchema('state');
         this.gate.switchContext({ chatFingerprint: fingerprint, sessionId: String(context.chatId || context.getCurrentChatId?.() || 'no-chat') });
@@ -75,7 +98,9 @@ export class NarrativeRuntime {
             checkpointEvery: this.settings?.checkpointInterval || 10, validator: (state) => validateSchema(stateSchema, state),
         });
         this.memoryStore = new EpisodicMemoryStore({ storage: this.storage, key: `narrative-engine:${fingerprint}:memories` });
-        await Promise.all([this.stateManager.load(), this.memoryStore.load()]);
+        await this.stateManager.load();
+        if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
+        this.memoryStore.items = this.stateManager.memories;
         this.participants = resolveParticipants(context);
         if (this.stateManager.state.revision === 0) {
             const characters = Object.fromEntries(this.participants
@@ -90,6 +115,11 @@ export class NarrativeRuntime {
         this.processed.clear();
         this.activeGenerationId = null;
         this.diagnostics.update({ lastPacket: '', retrievedMemories: [] });
+        if (this.settings.enabled) {
+            await this.stateManager.selectBranch(await branchReferences(context, Infinity, this.stateManager.canonVersion));
+            this.memoryStore.items = this.stateManager.memories;
+        }
+        this.stateReady = true;
         await this.persistCompactMetadata(context);
     }
 
@@ -113,7 +143,7 @@ export class NarrativeRuntime {
         this.recreateProvider(getContext());
         if (previousProvider !== this.settings.provider && (previousProvider === 'server' || this.settings.provider === 'server')) {
             this.storage = this.createStorage(getContext());
-            this.spriteManifests = new SpriteManifestStore({ storage: this.storage });
+            this.spriteManifests = new SpriteManifestStore({ storage: createStorageAdapter(globalThis.SillyTavern?.libs?.localforage) });
             void this.loadChat(getContext()).catch((error) => this.diagnostics.error(error, 'storage-switch'));
         }
         this.diagnostics.update({ status: this.settings.enabled ? 'ready' : 'disabled' });
@@ -133,26 +163,43 @@ export class NarrativeRuntime {
     }
 
     async preparePacket(outgoingChat, contextSize, type) {
-        if (!this.settings.enabled) return null;
+        if (!this.settings.enabled || !this.stateReady) return null;
         const context = getContext();
+        await this.enqueue(() => this.reconcile(context));
+        if (getChatFingerprint(getContext()) !== getChatFingerprint(context)) return null;
         const identity = createRequestIdentity(context, this.activeGenerationId);
         const token = this.gate.begin(identity);
         const current = this.stateManager.snapshot();
         const lastUser = [...(context.chat || [])].reverse().find((message) => message?.is_user);
+        const viewers = sceneViewers(current, this.participants);
+        const safeState = projectState(current, viewers);
         const query = {
             message: String(lastUser?.mes || ''),
-            characters: Object.keys(current.characters || {}),
-            topics: Object.keys(current.threads || {}),
+            characters: sceneViewers(current, this.participants, false),
+            topics: Object.keys(safeState.threads || {}),
             location: current.scene?.location || '',
         };
-        const memories = this.settings.memoryRetrieval ? this.memoryStore.search(query, { topK: this.settings.memoryTopK }) : [];
+        const searchOptions = { topK: this.settings.memoryTopK, tokenBudget: Math.floor(this.settings.packetTokenBudget / 2),
+            policy: { ...this.stateManager.scope, viewers, through: current.timeline?.date && current.timeline?.time ? `${current.timeline.date}T${current.timeline.time}` : undefined },
+            now: current.timeline?.date ? Date.parse(`${current.timeline.date}T${current.timeline.time || '00:00'}:00Z`) : 0,
+            weights: this.settings.memoryWeights, signal: token.signal };
+        let memories = this.settings.memoryRetrieval ? this.memoryStore.search(query, searchOptions) : [];
+        this.diagnostics.update({ retrievalMode: 'lexical_degraded' });
+        if (this.settings.memoryRetrieval && this.settings.embeddingSearch) {
+            try {
+                memories = await new VectorSearch(context, this.stateManager.chatFingerprint).search(this.memoryStore.items, query, searchOptions);
+                this.diagnostics.update({ retrievalMode: 'vector', embeddingError: null });
+            } catch (error) { if (this.gate.isCurrent(token)) this.diagnostics.update({ retrievalMode: 'lexical_degraded', embeddingError: error.message }); }
+        }
+        if (!this.gate.isCurrent(token)) { this.gate.finish(token); return null; }
         const turn = (context.chat || []).filter((message) => message?.is_user).length;
-        const dueEvents = Object.values(current.world_events || {}).some((event) => event?.status === 'due');
+        const dueEvents = Object.values(safeState.world_events || {}).some((event) => event?.status === 'due');
         const payload = {
             identity, generation_type: type, context_size: contextSize,
             latest_user_message: String(lastUser?.mes || ''),
-            recent_messages: recentChat(context, this.settings.recentMessages),
-            state: current,
+            recent_messages: [], // Unannotated past RP text is not an authority for another character's knowledge.
+            state: safeState,
+            knowledge_viewers: viewers,
             relevant_memories: memories,
             roles: {
                 continuity: this.settings.continuity,
@@ -163,10 +210,7 @@ export class NarrativeRuntime {
                 world_simulation: this.settings.worldSimulation,
                 scene_planner: true,
             },
-            character_director_hints: Object.fromEntries((this.participants || []).map((participant) => [
-                participant.name,
-                Array.isArray(participant.narrativeEngine?.directorHints) ? participant.narrativeEngine.directorHints : [],
-            ])),
+            character_director_hints: {}, // Private card hints stay out of the shared generation packet.
             cadence: {
                 plot_maintenance: shouldRunPlotMaintenance({ turn, interval: this.settings.plotInterval }),
                 world_simulation: shouldRunWorldSimulation({ dueEvent: dueEvents, cadenceDue: turn % 3 === 0 }),
@@ -180,95 +224,133 @@ export class NarrativeRuntime {
                 identity, signal: token.signal, timeoutMs: this.settings.preDirectorTimeoutMs, promptAddendum,
             });
             this.gate.assertCurrent(token);
-            const packet = buildDirectorPacket(pre, this.settings.packetTokenBudget);
+            const packet = buildDirectorPacket({ ...pre, relevant_memories: memories, active_threads: Object.values(safeState.threads),
+                character_states: Object.fromEntries(Object.entries(pre.character_states || {}).filter(([id]) => viewers.includes(id))) }, this.settings.packetTokenBudget);
             this.diagnostics.update({ status: 'generating', lastPacket: packet, retrievedMemories: memories });
             return packet;
         } catch (error) {
-            this.diagnostics.error(error, 'pre');
-            this.diagnostics.update({ status: 'degraded', lastPacket: '' });
+            if (this.gate.isCurrent(token)) {
+                this.diagnostics.error(error, 'pre');
+                this.diagnostics.update({ status: 'degraded', lastPacket: '' });
+            }
             return null;
         } finally {
             this.gate.finish(token);
         }
     }
 
-    async processPost(messageIndex, type) {
-        if (!this.settings.enabled) return;
+    processPost(messageIndex, type) {
         const context = getContext();
+        return this.enqueue(() => this.reconcile(context, Math.max(messageIndex, ...this.stateManager.deltas.map(d => d.messageIndex)), type));
+    }
+
+    async reconcile(context, through = Infinity, type = 'normal') {
+        if (!this.settings.enabled || !this.stateReady || getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
+        const manager = this.stateManager;
+        if (manager.chatFingerprint !== getChatFingerprint(context)) return;
+        const refs = await branchReferences(context, through, manager.canonVersion);
+        await manager.selectBranch(refs);
+        this.memoryStore.items = manager.memories;
+        for (const ref of refs) {
+            if (manager.findAccepted(ref.idempotencyKey)) continue;
+            if (this.stateManager !== manager || getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
+            const accepted = await this.processTurn(context, ref.messageIndex, type, manager);
+            if (!accepted) break;
+        }
+        if (this.stateManager === manager && getChatFingerprint(context) === getChatFingerprint(getContext())) {
+            await manager.selectBranch(await branchReferences(context, through, manager.canonVersion));
+            this.memoryStore.items = manager.memories;
+            this.diagnostics.update({ status: manager.pending.length ? 'pending_reconciliation' : 'ready' });
+            await this.persistCompactMetadata(context);
+        }
+    }
+
+    async processTurn(context, messageIndex, type, manager) {
         const message = context.chat?.[messageIndex];
-        if (!message || message.is_user || message.is_system) return;
-        const stableMessageId = messageId(message, messageIndex);
-        if (this.processed.has(stableMessageId)) return;
-        this.processed.add(stableMessageId);
+        if (!message || message.is_user || message.is_system) return false;
+        let ref = (await branchReferences(context, messageIndex, manager.canonVersion)).at(-1);
+        // Re-evaluate the prefix after a strict rewrite changed a preceding turn.
+        const prefix = await branchReferences(context, messageIndex - 1, manager.canonVersion);
+        await manager.selectBranch(prefix);
+        if (manager.findAccepted(ref.idempotencyKey)) {
+            await manager.selectBranch([...prefix, ref]); return true;
+        }
         const identity = createRequestIdentity(context, this.activeGenerationId);
         const token = this.gate.begin(identity);
-        const stateBefore = this.stateManager.snapshot();
-        const lastUser = [...context.chat.slice(0, messageIndex)].reverse().find((item) => item?.is_user);
-        const sceneChanged = stateBefore.scene?.location && message.extra?.location && stateBefore.scene.location !== message.extra.location;
-        const consolidate = shouldRunMemoryConsolidation({
-            messageCount: context.chat.length, sceneChanged,
-            interval: this.settings.memoryConsolidationInterval,
-        });
+        const assertCurrent = async () => {
+            this.gate.assertCurrent(token);
+            if (this.stateManager !== manager || getChatFingerprint(getContext()) !== getChatFingerprint(context)) throw new Error('Stale chat context');
+            const current = (await branchReferences(context, messageIndex, manager.canonVersion)).at(-1);
+            if (current?.idempotencyKey !== ref.idempotencyKey) throw new Error('Stale message content');
+        };
+        const stateBefore = manager.snapshot();
+        const lastUser = [...context.chat.slice(0, messageIndex)].reverse().find(m => m?.is_user);
         const auditMode = this.settings.auditor ? this.settings.auditMode : 'off';
+        const speaker = resolveMessageSpeaker(message, context).name;
         const payload = {
             identity, generation_type: type, state_before: stateBefore,
+            memory_scope: manager.scope, memory_audience_ids: sceneViewers(stateBefore, this.participants),
             user_message: String(lastUser?.mes || ''), rp_response: String(message.mes || ''),
             timeline: stateBefore.timeline, active_threads: stateBefore.threads,
-            consolidate_memory: consolidate,
-            audit_mode: auditMode,
-            sprite_director: this.settings.spriteDirector,
-            sprite_candidates: this.settings.spriteDirector
-                ? { [resolveMessageSpeaker(message, context).name]: this.spriteManifests.candidatesFor(resolveMessageSpeaker(message, context).name, stateBefore, 20) }
-                : {},
-            user_agency: 'The RP response must not invent user actions, thoughts, dialogue, or decisions.',
+            consolidate_memory: shouldRunMemoryConsolidation({ messageCount: messageIndex + 1, interval: this.settings.memoryConsolidationInterval }),
+            audit_mode: auditMode, sprite_director: this.settings.spriteDirector,
+            sprite_candidates: this.settings.spriteDirector ? { [speaker]: this.spriteManifests.candidatesFor(speaker, stateBefore, 20) } : {},
+            user_agency: 'Never assign voluntary actions or internal states to the player. NPC internal states require character-consistent evidence, not a player assertion.',
         };
         try {
             const promptAddendum = await loadStatePromptBundle(this.settings, 'post');
-            let post = await this.director.run('post', payload, {
-                identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum,
-            });
-            this.gate.assertCurrent(token);
-            this.diagnostics.update({ lastAudit: post.audit });
+            let post = await this.director.run('post', payload, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
+            await assertCurrent();
             if (!post.audit.valid && auditMode === 'strict' && highSeverity(post.audit)) {
                 const rewritten = await this.rewriteOnce(payload, post.audit, identity, token.signal);
+                await assertCurrent();
                 if (rewritten) {
                     message.mes = rewritten;
+                    ref = (await branchReferences(context, messageIndex, manager.canonVersion)).at(-1);
+                    await assertCurrent();
                     await context.saveChat?.();
+                    await assertCurrent();
                     context.updateMessageBlock?.(messageIndex, message, { rerenderMessage: true });
-                    post = await this.director.run('post', { ...payload, rp_response: rewritten, re_audit: true }, {
-                        identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum,
-                    });
-                    this.gate.assertCurrent(token);
-                    this.diagnostics.update({ lastAudit: post.audit });
+                    post = await this.director.run('post', { ...payload, rp_response: rewritten, re_audit: true }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
+                    await assertCurrent();
                 }
             }
-            if (!post.audit.valid && auditMode !== 'off') {
-                await this.persistCompactMetadata(context, { pendingReconciliation: false, lastAudit: post.audit });
-                return;
-            }
-            const delta = combineDelta(post, this.settings);
-            await this.stateManager.applyDelta(delta, { messageIndex, source: `message:${messageIndex}`, confidence: 1 });
-            for (const candidate of this.settings.memoryRetrieval ? (post.memory_candidates || []) : []) {
-                const memory = { ...candidate, id: candidate.id || `episode_${messageIndex}_${Math.random().toString(36).slice(2, 7)}` };
-                if (memory.summary) await this.memoryStore.add(memory);
-            }
-            message.extra ||= {};
-            message.extra.narrative_engine = { messageId: stableMessageId, delta, audit: post.audit, schemaVersion: 1 };
-            await context.saveChat?.();
-            const speaker = resolveMessageSpeaker(message, context).name;
-            this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
-                context, currentSpeaker: speaker, previous: this.spriteState,
-                allowedCandidates: payload.sprite_candidates,
+            const confidence = Number.isFinite(post.confidence) ? post.confidence : 0.5;
+            // A disputed extraction remains one atomic proposal, including typed operations.
+            let status = !post.audit.valid || confidence < this.settings.minimumConfidence ? 'proposed' : 'confirmed';
+            const normalizedMemories = this.settings.memoryRetrieval ? await Promise.all((post.memory_candidates || []).filter(m => typeof (m?.summary || m?.text) === 'string' && (m.summary || m.text)).map(async m => {
+                    const memory = normalizeMemory(m, { ...manager.scope, gameTime: stateBefore.timeline?.date && stateBefore.timeline?.time ? `${stateBefore.timeline.date}T${stateBefore.timeline.time}` : null });
+                    memory.embeddingHash = await textHash(memory.text); return memory;
+                })) : [];
+            await assertCurrent();
+            status = await manager.recordTurn(combineDelta(post, this.settings), { ...ref, generationId: identity.generationId, requestId: identity.requestId }, {
+                confidence, status, audit: post.audit,
+                memories: normalizedMemories,
             });
-            this.diagnostics.update({ status: 'ready', lastSprites: this.spriteState });
-            await this.persistCompactMetadata(context, { lastAudit: post.audit, pendingReconciliation: false });
+            await assertCurrent();
+            this.memoryStore.items = manager.memories;
+            this.diagnostics.update({ lastAudit: post.audit });
+            if (status !== 'confirmed') return false;
+            message.extra ||= {};
+            message.extra.narrative_engine = { messageId: ref.messageId, swipeId: ref.swipeId,
+                idempotencyKey: ref.idempotencyKey, deltaId: manager.findAccepted(ref.idempotencyKey).deltaId, schemaVersion: 2 };
+            await context.saveChat?.();
+            await assertCurrent();
+            this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
+                context, currentSpeaker: speaker, previous: this.spriteState, allowedCandidates: payload.sprite_candidates,
+            });
+            return true;
         } catch (error) {
-            this.diagnostics.error(error, 'post');
-            this.diagnostics.update({ status: 'degraded' });
-            await this.persistCompactMetadata(context, { pendingReconciliation: true, error: safeError(error) });
-        } finally {
-            this.gate.finish(token);
-        }
+            // Never write another chat's state or metadata from a late completion.
+            if (this.gate.isCurrent(token) && this.stateManager === manager && getChatFingerprint(getContext()) === getChatFingerprint(context)) {
+                const current = (await branchReferences(context, messageIndex, manager.canonVersion)).at(-1);
+                if (current?.idempotencyKey === ref.idempotencyKey) {
+                    if (!manager.findAccepted(ref.idempotencyKey)) await manager.setPending(ref, safeError(error));
+                    this.diagnostics.error(error, 'post');
+                }
+            }
+            return false;
+        } finally { this.gate.finish(token); }
     }
 
     async rewriteOnce(payload, audit, identity, signal) {
@@ -283,20 +365,19 @@ export class NarrativeRuntime {
         return result.replacement;
     }
 
-    async markDirtyAndRebuild(messageIndex = 0) {
-        this.stateManager.markDirty(messageIndex);
+    markDirtyAndRebuild(messageIndex = 0, { canonChanged = false } = {}) {
         const context = getContext();
-        const deltas = (context.chat || []).flatMap((message, index) => {
-            const delta = message?.extra?.narrative_engine?.delta;
-            return delta ? [{ messageIndex: index, delta, source: `message:${index}`, confidence: 1 }] : [];
+        this.gate.invalidate();
+        return this.enqueue(async () => {
+            if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
+            if (canonChanged) await this.stateManager.commit({ canonVersion: this.stateManager.canonVersion + 1 });
+            await this.reconcile(context);
         });
-        await this.stateManager.rebuild({ deltas });
-        await this.persistCompactMetadata(context, { dirty: false });
-        this.diagnostics.update({ status: 'ready' });
     }
 
     async persistCompactMetadata(context = getContext(), patch = {}) {
         const metadata = context.chatMetadata;
+        if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
         if (!metadata) return;
         const state = this.stateManager.snapshot();
         metadata[MODULE_NAME] = {
@@ -304,10 +385,45 @@ export class NarrativeRuntime {
             schemaVersion: state.schemaVersion, revision: state.revision,
             scene: state.scene, timeline: state.timeline,
             activeThreadIds: Object.keys(state.threads || {}).filter((id) => state.threads[id]?.status !== 'resolved'),
+            memoryScope: this.stateManager.scope,
             storageKey: this.stateManager.prefix, dirty: this.stateManager.dirty,
             ...patch,
+            pendingReconciliation: this.stateManager.pending.length > 0,
         };
         await context.saveMetadata?.();
+    }
+
+    async recoverStorage() {
+        this.gate.invalidate();
+        return this.enqueue(async () => {
+            if (!this.storage.recover) return { recovered: false, reason: 'Browser storage is active' };
+            await this.storage.recover();
+            await this.loadChatNow(getContext());
+            return { recovered: true };
+        });
+    }
+
+    configureSession(options) {
+        const context = getContext(); this.gate.invalidate();
+        return this.enqueue(async () => {
+            if (!this.stateReady || getChatFingerprint(context) !== getChatFingerprint(getContext())) throw new Error('State unavailable or chat changed');
+            const scope = await configureSession(this.stateManager, options);
+            this.memoryStore.items = this.stateManager.memories;
+            await this.persistCompactMetadata(context); return scope;
+        });
+    }
+
+    authorEdit(value) {
+        const context = getContext();
+        this.gate.invalidate();
+        return this.enqueue(async () => {
+            if (!this.stateReady || getChatFingerprint(context) !== getChatFingerprint(getContext())) throw new Error('World state is unavailable or chat changed');
+            if (!value || !Array.isArray(value.ops) || Object.keys(value).some(k => !['reason', 'ops'].includes(k))) throw new Error('Expected { reason, ops }');
+            await this.stateManager.selectBranch(await branchReferences(context, Infinity, this.stateManager.canonVersion));
+            const state = await this.stateManager.authorEdit(value.ops, value.reason);
+            await this.persistCompactMetadata(context);
+            return state;
+        });
     }
 
     async healthCheck() {
@@ -353,20 +469,24 @@ export class NarrativeRuntime {
 
     async exportState() {
         return {
-            schemaVersion: 1, chatFingerprint: getChatFingerprint(getContext()),
+            schemaVersion: this.stateManager.state.schemaVersion, chatFingerprint: getChatFingerprint(getContext()),
             state: this.stateManager.snapshot(), memories: [...this.memoryStore.items],
             threads: Object.values(this.stateManager.state.threads || {}),
             timeline: this.stateManager.state.timeline, spriteState: { ...this.spriteState },
         };
     }
 
-    async importState(value) {
+    importState(value) {
+        this.gate.invalidate();
+        return this.enqueue(() => this.importStateNow(value));
+    }
+
+    async importStateNow(value) {
         const validation = validateSchema(await loadSchema('export'), value);
         if (!validation.valid) throw new Error(`Invalid Narrative Engine export: ${validation.errors.map((item) => `${item.path} ${item.message}`).join('; ')}`);
         await this.stateManager.importData(value);
-        this.memoryStore.items = value.memories;
+        this.memoryStore.items = this.stateManager.memories;
         this.spriteState = value.spriteState || {};
-        await this.memoryStore.storage?.setItem(this.memoryStore.key, this.memoryStore.items);
         await this.persistCompactMetadata();
     }
 }

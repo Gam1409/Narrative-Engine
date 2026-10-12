@@ -60,7 +60,7 @@ function buildRoutes(router, { config, db, provider, logger = console }) {
         return next();
     });
 
-    router.get('/health', asyncRoute(async (_req, res) => res.json({ ok: true, schemaVersion: 1, provider: await provider.healthCheck() })));
+    router.get('/health', asyncRoute(async (_req, res) => res.json({ ok: true, schemaVersion: 2, provider: await provider.healthCheck() })));
 
     for (const phase of ['pre', 'post', 'reconcile']) {
         router.post(`/director/${phase}`, asyncRoute(async (req, res) => {
@@ -82,6 +82,48 @@ function buildRoutes(router, { config, db, provider, logger = console }) {
         }));
     }
 
+    router.post('/memory/embeddings', asyncRoute(async (req, res) => {
+        const body = assertObject(req.body), scope = scopeChatId(req, body.chatId);
+        if (!Array.isArray(body.texts) || !body.texts.length || body.texts.length > 64 || body.texts.some(t => typeof t !== 'string' || !t || t.length > 20000)) throw Object.assign(new Error('Invalid texts'), { status: 400 });
+        const model = `${config.embeddingUrl}|${config.embeddingModel}`;
+        if (!config.embeddingUrl || !config.embeddingModel) throw Object.assign(new Error('Embeddings not configured'), { status: 503 });
+        const hashes = body.texts.map(t => crypto.createHash('sha256').update(t).digest('hex'));
+        const cached = hashes.map(hash => db.db.prepare('SELECT vector_json,vector_blob FROM embedding_cache WHERE scope=? AND hash=? AND model=?').get(scope, hash, model));
+        const missing = [...new Set(hashes.filter((_, i) => !cached[i]))];
+        const fresh = missing.length ? await provider.embed(missing.map(hash => body.texts[hashes.indexOf(hash)])) : [];
+        db.db.transaction(() => {
+            const put = db.db.prepare('INSERT INTO embedding_cache(scope,hash,model,vector_json,vector_blob) VALUES (?,?,?,?,?) ON CONFLICT(scope,hash,model) DO NOTHING');
+            missing.forEach((hash, i) => put.run(scope, hash, model, JSON.stringify(fresh[i]), Buffer.from(new Float32Array(fresh[i]).buffer)));
+        })();
+        const vectors = hashes.map((hash, i) => cached[i] ? JSON.parse(cached[i].vector_json) : fresh[missing.indexOf(hash)]);
+        hashes.forEach((hash, i) => { if (cached[i] && !cached[i].vector_blob) db.db.prepare('UPDATE embedding_cache SET vector_blob=? WHERE scope=? AND hash=? AND model=?').run(Buffer.from(new Float32Array(vectors[i]).buffer), scope, hash, model); });
+        let scores;
+        if (db.vectorAvailable) {
+            const placeholders = hashes.map(() => '?').join(',');
+            const rows = db.db.prepare(`SELECT hash, 1-vec_distance_cosine(vector_blob, ?) AS similarity FROM embedding_cache WHERE scope=? AND model=? AND hash IN (${placeholders})`)
+                .all(Buffer.from(new Float32Array(vectors[0]).buffer), scope, model, ...hashes);
+            const byHash = new Map(rows.map(row => [row.hash, row.similarity]));
+            scores = hashes.map(hash => byHash.get(hash));
+        }
+        // FTS sees only the caller's eligible candidate texts; quoting prevents MATCH syntax injection.
+        if (db.ftsAvailable && Array.isArray(body.tokens) && body.tokens.length === hashes.length && body.tokens.every(t => typeof t === 'string' && t.length <= 20000)) {
+            db.db.transaction(() => {
+                const remove = db.db.prepare('DELETE FROM embedding_fts WHERE cache_key=?');
+                const put = db.db.prepare('INSERT INTO embedding_fts(cache_key,text) VALUES (?,?)');
+                hashes.forEach((hash, i) => { const key = `${scope}:${model}:${hash}`; remove.run(key); put.run(key, body.tokens[i]); });
+            })();
+            const terms = body.tokens[0].match(/[\p{L}\p{N}_-]+/gu) || [];
+            if (terms.length && scores) {
+                const match = terms.slice(0,64).map(term => `"${term.replaceAll('"', '""')}"`).join(' OR ');
+                const keys = hashes.map(hash => `${scope}:${model}:${hash}`);
+                const rows = db.db.prepare(`SELECT cache_key FROM embedding_fts WHERE embedding_fts MATCH ? AND cache_key IN (${keys.map(() => '?').join(',')})`).all(match, ...keys);
+                const hits = new Set(rows.map(row => row.cache_key));
+                scores = scores.map((score, i) => 0.85 * score + 0.15 * (hits.has(keys[i]) ? 1 : 0));
+            }
+        }
+        res.json({ model: crypto.createHash('sha256').update(model).digest('hex'), hashes, vectors: scores ? undefined : vectors, scores,
+            engine: db.vectorAvailable ? (db.ftsAvailable ? 'sqlite-vec+fts5' : 'sqlite-vec') : 'portable-cosine' });
+    }));
     router.post('/memory/search', asyncRoute(async (req, res) => {
         const body = assertObject(req.body); const chatId = scopeChatId(req, body.chatId);
         if (typeof body.query !== 'string' || body.query.length > 10000) throw Object.assign(new Error('Invalid query'), { status: 400 });
@@ -91,6 +133,18 @@ function buildRoutes(router, { config, db, provider, logger = console }) {
         const body = assertObject(req.body); const chatId = scopeChatId(req, body.chatId);
         res.json({ saved: consolidateMemories(db, chatId, body.memories) });
     }));
+    router.get('/storage/:chatId/:field', asyncRoute(async (req, res) => {
+        res.json(db.readField(scopeChatId(req, req.params.chatId), validateId(req.params.field, 'field')));
+    }));
+    router.post('/storage/:chatId/:field', asyncRoute(async (req, res) => {
+        const body = assertObject(req.body);
+        if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 0 || !Object.hasOwn(body, 'value')) throw Object.assign(new Error('Expected revision and value required'), { status: 400 });
+        res.json(db.writeField(scopeChatId(req, req.params.chatId), validateId(req.params.field, 'field'), body.value, body.expectedRevision));
+    }));
+    router.get('/storage/:chatId', asyncRoute(async (req, res) => {
+        res.json({ fields: db.listFields(scopeChatId(req, req.params.chatId)) });
+    }));
+
     router.get('/state/:chatId', asyncRoute(async (req, res) => res.json({ state: db.getState(scopeChatId(req, req.params.chatId)) })));
     router.post('/state/:chatId', asyncRoute(async (req, res) => {
         const chatId = scopeChatId(req, req.params.chatId); const body = assertObject(req.body);

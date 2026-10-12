@@ -7,7 +7,9 @@ export function installInterceptor(activeRuntime) {
 
 export async function narrativeEngineInterceptor(chat, contextSize, _abort, type) {
     if (!runtime) return;
-    const packet = await runtime.preparePacket(chat, contextSize, type);
+    let packet;
+    try { packet = await runtime.preparePacket(chat, contextSize, type); }
+    catch (error) { runtime.diagnostics?.error?.(error, 'pre'); return; }
     if (!packet) return;
     chat.push({
         is_user: false,

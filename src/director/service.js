@@ -26,8 +26,10 @@ export class DirectorService {
         const started = performance.now();
         try {
             const first = await this.provider.complete(request);
+            this.diagnostics?.recordUsage?.(first.usage);
             return await parseAndValidateJson(first.content, schema, async ({ invalidOutput, error }) => {
                 if (signal?.aborted) throw signal.reason;
+                this.diagnostics?.recordRepair?.();
                 const retry = await this.provider.complete({
                     ...request,
                     messages: [
@@ -35,6 +37,7 @@ export class DirectorService {
                         { role: 'user', content: JSON.stringify({ input: payload, invalid_output: String(invalidOutput).slice(0, 12000), validation_error: error }) },
                     ],
                 });
+                this.diagnostics?.recordUsage?.(retry.usage);
                 return retry.content;
             });
         } finally {

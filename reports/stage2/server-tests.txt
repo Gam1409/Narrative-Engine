@@ -1,0 +1,43 @@
+
+> sillytavern-narrative-engine@0.5.0 test:server
+> node server-plugin/run-tests.cjs server-plugin/tests
+
+✔ G19 browser storage contract: isolation, reload, copy semantics, remove and clear (4.0481ms)
+✔ G19 server storage contract: isolation, reload, copy semantics, remove and clear (81.2046ms)
+✔ C4 normalized SQLite writes append journal rows without snapshot multiplication (919.5113ms)
+✔ last verified snapshot survives outage and offline changes recover after reload (4.161ms)
+✔ uncached offline key fails closed instead of resetting the world (3.1826ms)
+✔ lost POST acknowledgement is recovered without duplicating writes (2.2047ms)
+✔ offline conflict preserves both versions and never overwrites remote state (2.1931ms)
+✔ CAS conflict rolls back in-memory transaction instead of entering fallback (2.3874ms)
+✔ lost acknowledgement of normalized history reconciles by value, not JSON key order (6.7486ms)
+✔ G1/G2 author and typed turn journal round-trip through normalized SQLite (15.0314ms)
+✔ configuration uses persistent DATA_ROOT storage and clamps limits (2.4941ms)
+✔ environment storage override is resolved and allowlist parsed (2.6796ms)
+✔ completion URL is fixed beneath configured endpoint (2.3197ms)
+✔ provider uses fixed model, retries, and never accepts request URL (252.8772ms)
+✔ unconfigured provider reports offline without throwing (1.5212ms)
+✔ chat storage identifiers are isolated by authenticated user (4.0402ms)
+✔ all required server routes are registered (3.0929ms)
+✔ Director messages preserve conversation and merge client system context after fixed policy (1.2596ms)
+✔ Director messages keep input and payload compatibility (1.4499ms)
+✔ Director messages reject unsafe shapes, roles, and oversized content (2.9279ms)
+✔ SQLite migration declares all required server-assisted tables (3.5518ms)
+✔ SSRF validation permits loopback for local Director (12.9975ms)
+✔ SSRF validation rejects protected networks unless explicitly allowlisted (3.4294ms)
+✔ SSRF validation rejects credentials and unsupported protocols (2.4489ms)
+✔ address and identifier validation covers unsafe inputs (0.7406ms)
+✔ state deltas merge without mutation and null deletes values (6.1735ms)
+✔ memory consolidation and keyword retrieval remain chat-scoped (2.5736ms)
+✔ sprite selection shortlists by code and preserves KEEP semantics (19.0054ms)
+✔ G13 file migration backs up v1 before writing v2 and preserves legacy envelope (2501.1744ms)
+✔ immutable row conflict rolls back whole bundle and remains chat scoped (2.432ms)
+✔ legacy snapshot route keeps at most twenty snapshots per chat (7.9763ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2865.3372

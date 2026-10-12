@@ -1,0 +1,484 @@
+{
+  "fixtureCount": 24,
+  "corpusSize": 24,
+  "quality": {
+    "baseline": {
+      "recallAt1": 0.5,
+      "recallAt3": 0.6666666666666666
+    },
+    "unicode": {
+      "recallAt1": 0.9583333333333334,
+      "recallAt3": 0.9583333333333334
+    }
+  },
+  "byLanguage": {
+    "ru": {
+      "baseline": {
+        "recallAt1": 0.625,
+        "recallAt3": 0.875
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "en": {
+      "baseline": {
+        "recallAt1": 0.4,
+        "recallAt3": 0.8
+      },
+      "unicode": {
+        "recallAt1": 0.8,
+        "recallAt3": 0.8
+      }
+    },
+    "de": {
+      "baseline": {
+        "recallAt1": 0.5,
+        "recallAt3": 0.5
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "fr": {
+      "baseline": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "es": {
+      "baseline": {
+        "recallAt1": 0,
+        "recallAt3": 0
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "zh": {
+      "baseline": {
+        "recallAt1": 0,
+        "recallAt3": 0
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "ja": {
+      "baseline": {
+        "recallAt1": 0,
+        "recallAt3": 0
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "ko": {
+      "baseline": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    },
+    "mixed": {
+      "baseline": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      },
+      "unicode": {
+        "recallAt1": 1,
+        "recallAt3": 1
+      }
+    }
+  },
+  "performance": {
+    "count": 10000,
+    "repetitions": 7,
+    "lexical": {
+      "p50Ms": 126.5974,
+      "p95Ms": 133.8214999999999
+    },
+    "sqliteVec384": {
+      "p50Ms": 15.01130000000012,
+      "p95Ms": 15.574999999999818
+    }
+  },
+  "sqliteVec": "v0.1.9",
+  "fts5": true,
+  "realEmbeddingQuality": null,
+  "note": "Synthetic labelled fixtures and vectors; no live embedding/model calls.",
+  "rows": [
+    {
+      "language": "ru",
+      "query": "Где лежат скрипки?",
+      "expected": "0",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "0",
+        "1",
+        "2"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Почему она боится моста?",
+      "expected": "1",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "1",
+        "0",
+        "23"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Что случилось с письмом?",
+      "expected": "2",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "2",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Кому принадлежат ключи?",
+      "expected": "3",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "3",
+        "6",
+        "0"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Что известно о дверях башни?",
+      "expected": "4",
+      "baseline": [
+        "4",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "4",
+        "7",
+        "0"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Где искать телефон?",
+      "expected": "5",
+      "baseline": [
+        "5",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "5",
+        "2",
+        "0"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Обещание вернуть кольца",
+      "expected": "6",
+      "baseline": [
+        "6",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "6",
+        "4",
+        "0"
+      ]
+    },
+    {
+      "language": "ru",
+      "query": "Доверие начальнику",
+      "expected": "7",
+      "baseline": [
+        "7",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "7",
+        "4",
+        "0"
+      ]
+    },
+    {
+      "language": "en",
+      "query": "Where are the violins?",
+      "expected": "8",
+      "baseline": [
+        "10",
+        "12",
+        "8"
+      ],
+      "unicode": [
+        "8",
+        "12",
+        "10"
+      ]
+    },
+    {
+      "language": "en",
+      "query": "Promises about repairing compasses",
+      "expected": "9",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "9",
+        "14",
+        "13"
+      ]
+    },
+    {
+      "language": "en",
+      "query": "Locked doors of the tower",
+      "expected": "10",
+      "baseline": [
+        "10",
+        "11",
+        "12"
+      ],
+      "unicode": [
+        "10",
+        "11",
+        "12"
+      ]
+    },
+    {
+      "language": "en",
+      "query": "Why did Eli fear the hospital?",
+      "expected": "11",
+      "baseline": [
+        "11",
+        "10",
+        "12"
+      ],
+      "unicode": [
+        "11",
+        "12",
+        "10"
+      ]
+    },
+    {
+      "language": "en",
+      "query": "Who departed for the docks?",
+      "expected": "12",
+      "baseline": [
+        "10",
+        "12",
+        "8"
+      ],
+      "unicode": [
+        "10",
+        "14",
+        "13"
+      ]
+    },
+    {
+      "language": "de",
+      "query": "Versteckte Schlüssel",
+      "expected": "13",
+      "baseline": [
+        "13",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "13",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "de",
+      "query": "Reparierte Brücken",
+      "expected": "14",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "14",
+        "16",
+        "9"
+      ]
+    },
+    {
+      "language": "fr",
+      "query": "Les lettres de Luc",
+      "expected": "15",
+      "baseline": [
+        "15",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "15",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "fr",
+      "query": "Marie et le café",
+      "expected": "16",
+      "baseline": [
+        "16",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "16",
+        "14",
+        "8"
+      ]
+    },
+    {
+      "language": "es",
+      "query": "Anillos escondidos",
+      "expected": "17",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "17",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "es",
+      "query": "Puertas cerradas",
+      "expected": "18",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "18",
+        "14",
+        "17"
+      ]
+    },
+    {
+      "language": "zh",
+      "query": "钥匙藏在哪里？",
+      "expected": "19",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "19",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "zh",
+      "query": "医院的医生",
+      "expected": "20",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "20",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "ja",
+      "query": "図書館の手紙",
+      "expected": "21",
+      "baseline": [
+        "0",
+        "1",
+        "2"
+      ],
+      "unicode": [
+        "21",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "ko",
+      "query": "도서관에서 만난 친구",
+      "expected": "22",
+      "baseline": [
+        "22",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "22",
+        "0",
+        "1"
+      ]
+    },
+    {
+      "language": "mixed",
+      "query": "Где Nora оставила backpack?",
+      "expected": "23",
+      "baseline": [
+        "23",
+        "0",
+        "1"
+      ],
+      "unicode": [
+        "23",
+        "0",
+        "1"
+      ]
+    }
+  ]
+}

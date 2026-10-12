@@ -1,0 +1,16 @@
+{
+  "version": "0.6.0",
+  "clientTests": 91,
+  "serverTests": 35,
+  "syntaxFiles": 85,
+  "parsedSchemas": 9,
+  "versions": {
+    "package.json": "0.6.0",
+    "manifest.json": "0.6.0",
+    "server-plugin\\package.json": "0.6.0",
+    "server-plugin\\package-lock.json": "0.6.0"
+  },
+  "diffCheck": "passed",
+  "packageDryRun": "passed",
+  "liveValidation": false
+}

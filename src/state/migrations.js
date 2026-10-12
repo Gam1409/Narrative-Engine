@@ -1,8 +1,10 @@
+import { createRegistry, validateWorld } from './entities.js';
 import { createInitialState, CURRENT_SCHEMA_VERSION } from './model.js';
 import { clone } from '../utils/object.js';
 
 const migrations = new Map([
     [1, (input) => createInitialState(input)],
+    [2, (input) => validateWorld({ ...clone(input), entities: input.entities || {}, registry: input.registry || createRegistry() })],
 ]);
 
 export function registerMigration(targetVersion, migrate) {

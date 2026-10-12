@@ -4,8 +4,8 @@ import { retrieveMemories, scoreMemory } from '../src/memory/retrieval.js';
 import { compactToBudget, estimateTokens } from '../src/utils/tokenBudget.js';
 
 const memories = [
-    { id: 'violin', scene: 'Room 167', characters: ['Wren'], topics: ['violin', 'talent_show'], summary: 'Wren left her violin beside the desk.', importance: 0.8 },
-    { id: 'snow', scene: 'Yard', characters: ['Bex'], topics: ['weather'], summary: 'Bex noticed heavy snow.', importance: 0.4 },
+    { id: 'violin', visibleTo: ['*'], scene: 'Room 167', characters: ['Wren'], topics: ['violin', 'talent_show'], summary: 'Wren left her violin beside the desk.', importance: 0.8 },
+    { id: 'snow', visibleTo: ['*'], scene: 'Yard', characters: ['Bex'], topics: ['weather'], summary: 'Bex noticed heavy snow.', importance: 0.4 },
 ];
 
 test('keyword retrieval returns relevant old episode without dumping database', () => {

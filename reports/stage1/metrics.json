@@ -1,0 +1,44 @@
+{
+  "measuredAt": "2026-10-12T09:42:08.374Z",
+  "node": "v24.14.0",
+  "scope": "Synthetic local CPU/SQLite measurements; no ST, network or model latency; small per-turn deltas",
+  "branch1000": {
+    "samplesMs": [
+      103.346,
+      79.721,
+      69.769,
+      69.421,
+      72.232,
+      67.817,
+      68.736
+    ],
+    "p50Ms": 69.769,
+    "p95Ms": 103.346
+  },
+  "lexicalRetrieval10000": {
+    "samplesMs": [
+      23.014,
+      18.862,
+      16.081,
+      13.68,
+      14.86,
+      13.703,
+      14.518
+    ],
+    "p50Ms": 14.86,
+    "p95Ms": 23.014
+  },
+  "sqlite100Turns": {
+    "p50Ms": 4.381,
+    "p95Ms": 8.238,
+    "transmittedBytes": 473324,
+    "records": 100,
+    "decisions": 100,
+    "memories": 100,
+    "checkpoints": 10,
+    "snapshots": 0
+  },
+  "realDirectorLatency": null,
+  "realTokenUsage": null,
+  "extractionQuality": null
+}

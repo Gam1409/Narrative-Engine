@@ -1,6 +1,6 @@
 {
   "name": "narrative-engine-server",
-  "version": "0.3.0",
+  "version": "0.6.0",
   "description": "Optional server-assisted storage and Director proxy for Narrative Engine",
   "main": "index.js",
   "type": "commonjs",
@@ -9,9 +9,12 @@
     "node": "20.x || 22.x || 23.x || 24.x"
   },
   "scripts": {
-    "test": "node --test --test-isolation=none tests/*.test.js"
+    "test": "node run-tests.cjs tests"
   },
   "dependencies": {
     "better-sqlite3": "12.4.1"
+  },
+  "optionalDependencies": {
+    "sqlite-vec": "0.1.9"
   }
 }

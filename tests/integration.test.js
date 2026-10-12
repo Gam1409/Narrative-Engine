@@ -27,7 +27,7 @@ test('solo continuity, knowledge, relationships, and timeline survive delta repl
 
 test('long chat retrieval returns the old relevant violin episode without a chat dump', () => {
     const memories = Array.from({ length: 1000 }, (_, index) => ({
-        id: `episode_${index}`, summary: index === 42 ? 'Wren promised to bring her violin to rehearsal.' : `Routine meal number ${index}`,
+        id: `episode_${index}`, visibleTo: ['*'], summary: index === 42 ? 'Wren promised to bring her violin to rehearsal.' : `Routine meal number ${index}`,
         topics: index === 42 ? ['violin', 'talent_show'] : ['daily'], characters: index === 42 ? ['Wren'] : ['NPC'], importance: index === 42 ? 0.9 : 0.1,
     }));
     const result = retrieveMemories(memories, { message: 'Wren asks about the violin', characters: ['Wren'], topics: ['violin'] }, { topK: 6 });
@@ -65,4 +65,12 @@ test('PRE packet is ephemeral and marked when available', async () => {
     uninstallInterceptor();
     assert.equal(chat.length, 2);
     assert.equal(chat[1].extra.narrative_engine.ephemeral, true);
+});
+
+test('storage failure in PRE leaves ordinary RP chat untouched', async () => {
+    const chat = [{ is_user: true, mes: 'Continue.' }];
+    installInterceptor({ preparePacket: async () => { throw new Error('no verified snapshot'); } });
+    try { await narrativeEngineInterceptor(chat, 4096, () => {}, 'normal'); }
+    finally { uninstallInterceptor(); }
+    assert.equal(chat.length, 1);
 });

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Canonical episodic memory",
+  "type": "object",
+  "required": [
+    "id",
+    "memoryId",
+    "text",
+    "campaignId",
+    "sessionId",
+    "type",
+    "entities",
+    "visibleTo",
+    "importance",
+    "status",
+    "sourceDeltaId",
+    "embeddingHash"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "memoryId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "campaignId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceDeltaId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "embeddingHash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "enum": [
+        "event",
+        "fact",
+        "belief",
+        "relation",
+        "thread",
+        "summary"
+      ]
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "visibleTo": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "importance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "status": {
+      "enum": [
+        "current",
+        "superseded",
+        "disputed"
+      ]
+    },
+    "supersededBy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "gameTime": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -1,0 +1,901 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Narrative history bundle version 2",
+  "type": "object",
+  "required": [
+    "historyVersion",
+    "state",
+    "records",
+    "decisions",
+    "deltas",
+    "pending",
+    "memories",
+    "checkpoints"
+  ],
+  "properties": {
+    "historyVersion": {
+      "const": 2
+    },
+    "state": {
+      "type": "object"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "deltaId",
+          "idempotencyKey",
+          "delta",
+          "confidence",
+          "source",
+          "at",
+          "messageRef"
+        ],
+        "properties": {
+          "deltaId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "delta": {
+            "type": "object",
+            "properties": {
+              "ops": {
+                "type": "array",
+                "maxItems": 200,
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "create_entity"
+                        },
+                        "entity": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "type",
+                            "name"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "type": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "aliases": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "campaignId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "params": {
+                              "type": "object"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity",
+                        "to"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "move"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "to": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "rel",
+                                "target"
+                              ],
+                              "properties": {
+                                "rel": {
+                                  "enum": [
+                                    "on",
+                                    "in",
+                                    "inside",
+                                    "holds",
+                                    "wears"
+                                  ]
+                                },
+                                "target": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity",
+                        "owner"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "set_owner"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "owner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity",
+                        "key",
+                        "value"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "set"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "value": {}
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity",
+                        "key",
+                        "amount"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "adjust"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "amount": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "archive_entity"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity",
+                        "rel",
+                        "target"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "link"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "rel": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "target": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "entity",
+                        "rel",
+                        "target"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "unlink"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "rel": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "target": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "key",
+                        "label"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "define_type"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "definition"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "define_parameter"
+                        },
+                        "definition": {
+                          "type": "object",
+                          "required": [
+                            "key",
+                            "label",
+                            "type",
+                            "scope"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "key",
+                        "patch"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "update_parameter"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "patch": {
+                          "type": "object"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "key",
+                        "newKey"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "rename_parameter"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "newKey": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "key"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "archive_parameter"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "op",
+                        "key"
+                      ],
+                      "properties": {
+                        "op": {
+                          "const": "delete_parameter"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "messageRef": {
+            "type": "object"
+          },
+          "supersedes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ops": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "create_entity"
+                    },
+                    "entity": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "type",
+                        "name"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "aliases": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "campaignId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "params": {
+                          "type": "object"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity",
+                    "to"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "move"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "rel",
+                            "target"
+                          ],
+                          "properties": {
+                            "rel": {
+                              "enum": [
+                                "on",
+                                "in",
+                                "inside",
+                                "holds",
+                                "wears"
+                              ]
+                            },
+                            "target": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity",
+                    "owner"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "set_owner"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "owner": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity",
+                    "key",
+                    "value"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "set"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "value": {}
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity",
+                    "key",
+                    "amount"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "adjust"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "amount": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "archive_entity"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity",
+                    "rel",
+                    "target"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "link"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "rel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "target": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "entity",
+                    "rel",
+                    "target"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "unlink"
+                    },
+                    "entity": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "rel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "target": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "key",
+                    "label"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "define_type"
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "definition"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "define_parameter"
+                    },
+                    "definition": {
+                      "type": "object",
+                      "required": [
+                        "key",
+                        "label",
+                        "type",
+                        "scope"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "key",
+                    "patch"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "update_parameter"
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "patch": {
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "key",
+                    "newKey"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "rename_parameter"
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "newKey": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "key"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "archive_parameter"
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "op",
+                    "key"
+                  ],
+                  "properties": {
+                    "op": {
+                      "const": "delete_parameter"
+                    },
+                    "key": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "chatFingerprint": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "gameTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "anchorKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "decisionId",
+          "deltaId",
+          "status",
+          "at"
+        ],
+        "properties": {
+          "decisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deltaId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed",
+              "rejected",
+              "reverted",
+              "superseded"
+            ]
+          },
+          "at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "deltas": {
+      "type": "array"
+    },
+    "pending": {
+      "type": "array"
+    },
+    "memories": {
+      "type": "array"
+    },
+    "checkpoints": {
+      "type": "array"
+    },
+    "canonVersion": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

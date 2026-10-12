@@ -84,6 +84,26 @@ class DirectorProvider {
         throw lastError;
     }
 
+    async embed(input) {
+        if (!this.config.embeddingUrl || !this.config.embeddingModel) throw Object.assign(new Error('Embedding provider is not configured'), { status: 503 });
+        if (!Array.isArray(input) || !input.length || input.length > 64 || input.some(s => typeof s !== 'string' || !s || s.length > 20000)) throw Object.assign(new Error('Invalid embedding batch'), { status: 400 });
+        const validated = await this.validate(this.config.embeddingUrl, this.config.allowHosts);
+        const url = new URL(validated.url); url.pathname = `${url.pathname.replace(/\/$/, '')}/embeddings`; url.search = '';
+        const body = JSON.stringify({ model: this.config.embeddingModel, input, encoding_format: 'float' });
+        const result = await this.request(url, { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body),
+            ...(this.config.embeddingKey ? { authorization: `Bearer ${this.config.embeddingKey}` } : {}) } }, body, validated.addresses, this.config.timeoutMs, this.controllers);
+        const rows = result?.data;
+        if (!Array.isArray(rows) || rows.length !== input.length) throw new Error('Embedding count mismatch');
+        const vectors = Array(input.length);
+        for (const row of rows) {
+            if (!Number.isInteger(row.index) || row.index < 0 || row.index >= input.length || vectors[row.index] || !Array.isArray(row.embedding)
+                || !row.embedding.length || row.embedding.length > 8192 || row.embedding.some(v => !Number.isFinite(v))) throw new Error('Invalid embedding response');
+            vectors[row.index] = row.embedding;
+        }
+        if (vectors.some(v => v.length !== vectors[0].length)) throw new Error('Embedding dimensions mismatch');
+        return vectors;
+    }
+
     async healthCheck() {
         if (!this.config.providerUrl || !this.config.providerModel) return { ok: false, configured: false };
         try { await this.validate(this.config.providerUrl, this.config.allowHosts); return { ok: true, configured: true }; }

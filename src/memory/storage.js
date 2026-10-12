@@ -17,13 +17,23 @@ export class BrowserStorageAdapter {
             ? localforage.createInstance({ name: 'narrative-engine', storeName: 'state', ...(options.config || {}) })
             : localforage;
         this.degraded = !this.backend;
+        this.mirrored = new Set();
     }
 
     async #call(method, ...args) {
         if (!this.degraded && typeof this.backend?.[method] === 'function') {
-            try { return await this.backend[method](...args); }
+            try {
+                const result = await this.backend[method](...args);
+                if (method === 'getItem') { await this.fallback.setItem(args[0], result); this.mirrored.add(args[0]); }
+                if (method === 'setItem') { await this.fallback.setItem(...args); this.mirrored.add(args[0]); }
+                if (method === 'removeItem') { await this.fallback.removeItem(args[0]); this.mirrored.add(args[0]); }
+                if (method === 'clear') { await this.fallback.clear(); this.mirrored.clear(); }
+                return result;
+            }
             catch (error) { this.degraded = true; this.lastError = error; }
         }
+        if (method === 'getItem' && this.backend && !this.mirrored.has(args[0])) throw new Error('Browser storage unavailable and no verified snapshot');
+        if (method === 'setItem') this.mirrored.add(args[0]);
         return this.fallback[method](...args);
     }
     getItem(key) { return this.#call('getItem', key); }

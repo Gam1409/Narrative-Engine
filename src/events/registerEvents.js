@@ -37,8 +37,8 @@ export function registerEvents(context, runtime, refreshUi = () => {}) {
     }));
     on(events.CHAT_CREATED, safe('chat-created', async () => runtime.loadChat()));
     on(events.CONNECTION_PROFILE_LOADED, safe('connection-profile', async () => runtime.recreateProvider()));
-    on(events.WORLDINFO_UPDATED, safe('world-info', () => runtime.markDirtyAndRebuild(0)));
-    on(events.WORLDINFO_SETTINGS_UPDATED, safe('world-info-settings', () => runtime.markDirtyAndRebuild(0)));
+    on(events.WORLDINFO_UPDATED, safe('world-info', () => runtime.markDirtyAndRebuild(0, { canonChanged: true })));
+    on(events.WORLDINFO_SETTINGS_UPDATED, safe('world-info-settings', () => runtime.markDirtyAndRebuild(0, { canonChanged: true })));
 
     return () => {
         for (const [event, handler] of subscriptions) source.removeListener?.(event, handler);
