@@ -1,5 +1,7 @@
 # Acceptance matrix
 
+Current local acceptance: [stage 6, version 1.0.0](stage6_implementation.md). The [G1-G27 catalog](../tests/fixtures/golden-scenarios.json) links exact scripted evidence; the [runner result](stage6/golden-results.json) reports execution rather than inferred coverage. Live quality remains unverified. Earlier counts below are historical.
+
 Stage 4: [0.7.0 local implementation and boundaries](stage4_implementation.md). Causal emotion/relationship rules, deferred processing, world time and SQLite restart/replay are covered. Private group guidance uses the verified public current-recipient ID and is omitted when unknown or impersonating the player. Live model quality remains unmeasured.
 
 Stage 3: [0.6.0 implementation and local verification](stage3_implementation.md). **91 client / 35 server tests pass**. G3/G18/G20, Unicode retrieval, real sqlite-vec/FTS5, cache isolation and English commands without aliases are covered. Real multilingual model quality remains unmeasured.

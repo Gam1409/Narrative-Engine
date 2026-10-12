@@ -10,6 +10,10 @@ export class Diagnostics {
         this.errors = [];
         this.listeners = new Set();
         this.samples = { pre: [], post: [], reconcile: [] };
+        this.responses = {};
+        this.postAttempts = 0;
+        this.strictAttempts = 0;
+        this.strictRewrites = 0;
         this.usage = { calls: 0, reportedTokens: 0, callsWithoutUsage: 0, jsonRepairs: 0 };
     }
 
@@ -25,6 +29,14 @@ export class Diagnostics {
         if (Number.isFinite(total)) this.usage.reportedTokens += total;
         else this.usage.callsWithoutUsage++;
     }
+
+    recordResponse(role, {valid}) {
+        const value=this.responses[role] ||= {total:0, invalid:0};
+        value.total++; if(!valid)value.invalid++;
+    }
+
+    recordPostAttempt(strict) { this.postAttempts++; if(strict)this.strictAttempts++; }
+    recordStrictRewrite() { this.strictRewrites++; }
 
     recordRepair() { this.usage.jsonRepairs++; }
 
@@ -57,6 +69,12 @@ export class Diagnostics {
             lastPacket: this.lastPacket, lastAudit: this.lastAudit,
             lastSprites: { ...this.lastSprites }, retrievedMemories: [...this.retrievedMemories],
             retrievalMode: this.retrievalMode || 'not_run', embeddingError: this.embeddingError || null,
+            quality: {
+                scope: 'extension lifetime; POST processing attempts include reconciliation retries',
+                responses: Object.fromEntries(Object.entries(this.responses).map(([role,v])=>[role,{...v,invalidRate:v.total?v.invalid/v.total:null}])),
+                postAttempts:this.postAttempts, strictAttempts:this.strictAttempts, strictRewrites:this.strictRewrites,
+                strictRewriteRate:this.strictAttempts?this.strictRewrites/this.strictAttempts:null,
+            },
             errors: [...this.errors], usage: { ...this.usage },
             latencyStats: Object.fromEntries(Object.entries(this.samples).map(([role, samples]) => {
                 const sorted = [...samples].sort((a,b) => a-b);

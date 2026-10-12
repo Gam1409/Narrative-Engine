@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { applyStateDelta, createInitialState } from '../src/state/model.js';
 import { StateManager } from '../src/state/manager.js';
 import { MemoryStorageAdapter } from '../src/memory/storage.js';
+import { validateWorld } from '../src/state/entities.js';
+import { deepFreeze } from '../src/utils/object.js';
 import { latestStatus } from '../src/state/history.js';
 import { validateSchema } from '../src/utils/schema.js';
 
@@ -158,4 +160,11 @@ test('failed migration and failed author persistence leave source and state unch
     const before = manager.snapshot();
     storage.setItem = async () => { throw new Error('disk full'); };
     await assert.rejects(manager.authorEdit(setup, 'Setup'), /disk full/); assert.deepEqual(manager.snapshot(), before); assert.equal(manager.records.length, 0);
+});
+
+test('physical validation accepts frozen entities without mutation and rejects conflicting derived fields',()=>{
+ const state=deepFreeze(world()),before=structuredClone(state);
+ validateWorld(state);assert.deepEqual(state,before);
+ const invalid=structuredClone(state);invalid.entities.phone.holder='alice';
+ assert.throws(()=>validateWorld(invalid),/Conflicting physical field/);
 });

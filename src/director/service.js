@@ -39,7 +39,7 @@ export class DirectorService {
                 });
                 this.diagnostics?.recordUsage?.(retry.usage);
                 return retry.content;
-            });
+            }, result => this.diagnostics?.recordResponse?.(role, result));
         } finally {
             this.diagnostics?.recordLatency?.(role, Math.round(performance.now() - started));
         }

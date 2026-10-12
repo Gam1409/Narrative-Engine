@@ -1,0 +1,357 @@
+{
+  "scope": "Reference prompts with expected outcomes. Local evidence runs scripted contracts, not these prompts through a model.",
+  "liveValidation": false,
+  "scenarios": [
+    {
+      "id": "G1",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/entities.test.js",
+          "test": "G1 taking an item replaces its table position, G2 transfer preserves ownership"
+        },
+        {
+          "file": "server-plugin/tests/adapter.test.mjs",
+          "test": "G1/G2 author and typed turn journal round-trip through normalized SQLite"
+        }
+      ]
+    },
+    {
+      "id": "G2",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/entities.test.js",
+          "test": "G1 taking an item replaces its table position, G2 transfer preserves ownership"
+        },
+        {
+          "file": "server-plugin/tests/adapter.test.mjs",
+          "test": "G1/G2 author and typed turn journal round-trip through normalized SQLite"
+        }
+      ]
+    },
+    {
+      "id": "G3",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/memory-policy.test.js",
+          "test": "G3 hard filters run before ranking, default legacy visibility is denied"
+        },
+        {
+          "file": "tests/memory-policy.test.js",
+          "test": "G3/G23 shared state removes private feelings, secrets, provenance and off-scene entities"
+        }
+      ]
+    },
+    {
+      "id": "G4",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G4/G26 a transient emotion never changes durable relationships"
+        }
+      ]
+    },
+    {
+      "id": "G5",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G5 repeated humiliation changes directed trust, bounded once per causal evidence"
+        }
+      ]
+    },
+    {
+      "id": "G6",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G6 swipe removes old memory and restores compatible cached variant without Director"
+        }
+      ]
+    },
+    {
+      "id": "G7",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G7 earlier edit recomputes dependent turns and equals replay from scratch"
+        }
+      ]
+    },
+    {
+      "id": "G8",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G8 delete rolls back state and memory including after reload"
+        }
+      ]
+    },
+    {
+      "id": "G9",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G9 explicit player action can establish new canon instead of preserving a lost item"
+        }
+      ]
+    },
+    {
+      "id": "G10",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G10 outage recovers missing POST and clears persistent pending flag"
+        }
+      ]
+    },
+    {
+      "id": "G11",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G11 late POST cannot write another chat or its metadata"
+        }
+      ]
+    },
+    {
+      "id": "G12",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G12 replay after load is idempotent and preserves provenance and memory"
+        }
+      ]
+    },
+    {
+      "id": "G13",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/entities.test.js",
+          "test": "G13 schema-v1 save is backed up before migration and old deltas remain replayable"
+        },
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G13 legacy bundle is backed up before migration; startup card checkpoint survives"
+        },
+        {
+          "file": "server-plugin/tests/storage.test.js",
+          "test": "G13 file migration backs up v1 before writing v2 and preserves legacy envelope"
+        }
+      ]
+    },
+    {
+      "id": "G14",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G22/G14 overnight advances decay, weather, conditional events and daily schedules"
+        },
+        {
+          "file": "server-plugin/tests/simulation.test.mjs",
+          "test": "G14/G22 SQLite close/reopen preserves schedules and pending inner life and rollback"
+        }
+      ]
+    },
+    {
+      "id": "G15",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G15 scripted injected Director output cannot change settings or administer the registry"
+        }
+      ]
+    },
+    {
+      "id": "G16",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/visual.test.js",
+          "test": "G16 illustration request and completion attach scene metadata without a state delta"
+        }
+      ]
+    },
+    {
+      "id": "G17",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/visual.test.js",
+          "test": "G17 visual submission error never writes to the canonical manager"
+        },
+        {
+          "file": "server-plugin/tests/visual.test.js",
+          "test": "G17 lost submission acknowledgement ends without unsafe duplicate POST"
+        }
+      ]
+    },
+    {
+      "id": "G18",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/memory-policy.test.js",
+          "test": "G18 supersession is derived from accepted records and reverses with branch rollback"
+        },
+        {
+          "file": "server-plugin/tests/adapter.test.mjs",
+          "test": "G18 SQLite keeps memory rows immutable while projecting superseded status and rollback"
+        }
+      ]
+    },
+    {
+      "id": "G19",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "server-plugin/tests/adapter.test.mjs",
+          "test": "G19 browser storage contract: isolation, reload, copy semantics, remove and clear"
+        },
+        {
+          "file": "server-plugin/tests/adapter.test.mjs",
+          "test": "G19 server storage contract: isolation, reload, copy semantics, remove and clear"
+        }
+      ]
+    },
+    {
+      "id": "G20",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/memory-policy.test.js",
+          "test": "G20 campaign snapshot inherits state and open threads; selective and session-only isolate"
+        }
+      ]
+    },
+    {
+      "id": "G21",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/history-runtime.test.js",
+          "test": "G21 runtime POST persists reaction and next PRE gets private guidance without raw private history"
+        },
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G21 significant event creates personal appraisal, hidden emotions and durable aftermath"
+        }
+      ]
+    },
+    {
+      "id": "G22",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G22/G14 overnight advances decay, weather, conditional events and daily schedules"
+        },
+        {
+          "file": "server-plugin/tests/simulation.test.mjs",
+          "test": "G14/G22 SQLite close/reopen preserves schedules and pending inner life and rollback"
+        }
+      ]
+    },
+    {
+      "id": "G23",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/memory-policy.test.js",
+          "test": "G3/G23 shared state removes private feelings, secrets, provenance and off-scene entities"
+        },
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G23 another recipient and ambiguous group receive observations without hidden anxiety"
+        },
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G23 group generation selects only the current member, never the player impersonation"
+        }
+      ]
+    },
+    {
+      "id": "G24",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G24 per-character appraisals and mixed emotions remain distinct"
+        }
+      ]
+    },
+    {
+      "id": "G25",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G25 agency, unknown causes and character breaks reject atomically"
+        }
+      ]
+    },
+    {
+      "id": "G26",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G4/G26 a transient emotion never changes durable relationships"
+        }
+      ]
+    },
+    {
+      "id": "G27",
+      "status": "passed",
+      "modelQualityVerified": false,
+      "evidence": [
+        {
+          "file": "tests/simulation.test.js",
+          "test": "G27 off/light/full and background detail are selective and packet remains bounded"
+        }
+      ]
+    }
+  ],
+  "passed": 27,
+  "total": 27
+}

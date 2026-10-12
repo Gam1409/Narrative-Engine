@@ -58,7 +58,7 @@ const NUMBER_SETTINGS = new Set([
 
 const STATUS_FIELDS = [
     'providerStatus', 'preLatency', 'postLatency', 'scene', 'time', 'presentCharacters',
-    'threads', 'retrievedMemories', 'lastAudit', 'spriteDecisions', 'tokenEstimates', 'errors', 'storageStatus', 'retrievalMode', 'memoryScope', 'usage', 'latencyStats',
+    'threads', 'retrievedMemories', 'lastAudit', 'spriteDecisions', 'tokenEstimates', 'errors', 'storageStatus', 'retrievalMode', 'memoryScope', 'usage', 'latencyStats', 'quality', 'subsystems',
 ];
 
 const DEBUG_FUNCTIONS = Object.freeze([

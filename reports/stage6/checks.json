@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "versions": {
+    "package.json": "1.0.0",
+    "manifest.json": "1.0.0",
+    "server-plugin/package.json": "1.0.0",
+    "server-plugin/package-lock.json": "1.0.0"
+  },
+  "clientTests": 126,
+  "serverTests": 44,
+  "goldenScenarios": 27,
+  "syntaxFiles": 96,
+  "parsedSchemas": 12,
+  "readmeLanguages": [
+    "en",
+    "ru"
+  ],
+  "commandsInEachReadme": 18,
+  "documentationLinks": "passed",
+  "diffCheck": "passed",
+  "liveValidation": false,
+  "modelQualityVerified": false,
+  "loadReport": "load-metrics.json",
+  "rebuildComparison": "rebuild-comparison.json"
+}

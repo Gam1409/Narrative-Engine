@@ -1,0 +1,37 @@
+{
+  "scope": "Synthetic CPU/in-memory storage: 3000 small deltas with light simulation, 300 entities, 30000 memories and six scene characters. Three samples; p95 is sample maximum. No real model, browser, network or GPU.",
+  "node": "v24.14.0",
+  "samples": [
+    {
+      "rebuildMs": 9703.070899999999,
+      "retrievalMs": 586.3723000000009,
+      "descriptorMs": 12.212999999999738
+    },
+    {
+      "rebuildMs": 9437.064800000002,
+      "retrievalMs": 662.0734000000011,
+      "descriptorMs": 2.7998999999981606
+    },
+    {
+      "rebuildMs": 9486.1996,
+      "retrievalMs": 591.7479999999996,
+      "descriptorMs": 2.4402999999983876
+    }
+  ],
+  "metrics": {
+    "rebuildMs": {
+      "p50": 9486.1996,
+      "p95": 9703.070899999999
+    },
+    "retrievalMs": {
+      "p50": 591.7479999999996,
+      "p95": 662.0734000000011
+    },
+    "descriptorMs": {
+      "p50": 2.7998999999981606,
+      "p95": 12.212999999999738
+    }
+  },
+  "realTokens": null,
+  "realModelLatency": null
+}

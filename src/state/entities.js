@@ -145,7 +145,7 @@ export function validateWorld(state) {
             const seen = new Set([key]); let cursor = e;
             while (cursor.position) { if (seen.has(cursor.position.target)) fail('Physical containment cycle'); seen.add(cursor.position.target); cursor = entity(state, cursor.position.target, false); }
         }
-        const expected = clone(e); spatialFields(expected);
+        const expected = { position: e.position }; spatialFields(expected);
         for (const field of ['holder', 'location', 'container']) if (e[field] !== expected[field]) fail(`Conflicting physical field: ${field}`);
         for (const rel of e.relations) { exact(rel, ['rel', 'target']); id(rel.rel); if (PHYSICAL.includes(rel.rel) || ['owner', 'holder', 'location', 'container'].includes(rel.rel)) fail('Use move or set_owner for physical relations'); entity(state, rel.target, false); }
     }

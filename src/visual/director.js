@@ -44,6 +44,7 @@ export class VisualDirector {
         const runtime=this.runtime;
         for(let n=0;n<600;n++) {
             if(this.closed || manager!==runtime.stateManager || getChatFingerprint(getContext())!==fingerprint)return;
+            this.lastJobStatus=job.status;
             if(['done','failed_final'].includes(job.status)) {
                 const current=await this.scene();
                 if(this.closed || manager!==runtime.stateManager || getChatFingerprint(getContext())!==fingerprint)return;

@@ -30,20 +30,25 @@ export function repairJsonLocally(text) {
 }
 
 /** Extract, validate, make at most one repair callback, then fail closed. */
-export async function parseAndValidateJson(text, schema, repair) {
+export async function parseAndValidateJson(text, schema, repair, observe) {
     let firstError;
     try {
         const value = extractJson(text);
-        return assertSchema(schema, value, 'Director output');
-    } catch (error) { firstError = error; }
+        const valid = assertSchema(schema, value, 'Director output');
+        observe?.({valid:true, attempt:'initial'});
+        return valid;
+    } catch (error) { firstError = error; observe?.({valid:false, attempt:'initial'}); }
     try {
         const local = extractJson(repairJsonLocally(text));
         return assertSchema(schema, local, 'Locally repaired Director output');
     } catch { /* one external retry below */ }
     if (typeof repair === 'function') {
         const repaired = await repair({ invalidOutput: text, error: firstError.message, schema });
-        const value = extractJson(repaired);
-        return assertSchema(schema, value, 'Repaired Director output');
+        try {
+            const value = assertSchema(schema, extractJson(repaired), 'Repaired Director output');
+            observe?.({valid:true, attempt:'repair'});
+            return value;
+        } catch(error) { observe?.({valid:false, attempt:'repair'}); throw error; }
     }
     throw firstError;
 }

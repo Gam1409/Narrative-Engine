@@ -298,6 +298,7 @@ export class NarrativeRuntime {
         const stateBefore = manager.snapshot();
         const lastUser = [...context.chat.slice(0, messageIndex)].reverse().find(m => m?.is_user);
         const auditMode = this.settings.auditor ? this.settings.auditMode : 'off';
+        this.diagnostics.recordPostAttempt(auditMode === 'strict');
         const speaker = resolveMessageSpeaker(message, context).name;
         const payload = {
             identity, generation_type: type, state_before: postSimulationState(stateBefore, simulationPolicy(this.settings, stateBefore, this.participants, context.name1)),
@@ -322,6 +323,7 @@ export class NarrativeRuntime {
             await assertCurrent();
             post = validatePost(post);
             if (!post.audit.valid && auditMode === 'strict' && highSeverity(post.audit)) {
+                this.diagnostics.recordStrictRewrite();
                 const rewritten = await this.rewriteOnce(payload, post.audit, identity, token.signal);
                 await assertCurrent();
                 if (rewritten) {

@@ -1,502 +1,194 @@
-# Narrative Engine для SillyTavern
+# Narrative Engine for SillyTavern
 
-![Narrative Engine — творческая модель и модель-режиссёр](assets/narrative-engine-hero.png)
+**English** | [???????](README_RU.md)
 
-**Narrative Engine** — расширение для SillyTavern, которое добавляет к обычной ролевой модели отдельного **Режиссёра**. Ролевая модель по-прежнему пишет художественный ответ, а Режиссёр следит за непрерывностью сцены, состоянием персонажей, отношениями, знаниями, сюжетными линиями, событиями мира, долговременной памятью и спрайтами.
+![Narrative Engine](assets/narrative-engine-hero.png)
 
-Проект не является форком SillyTavern и не подменяет его основной генератор. Он подключается через публичный API расширений и при необходимости использует отдельный серверный плагин для безопасного хранения ключа и SQLite.
+Narrative Engine adds a separate Director model to SillyTavern. Your RP model writes the story; the Director tracks continuity, physical state, knowledge, relationships, world events and episodic memory. Optional sprite selection and ComfyUI jobs use accepted scene state.
 
-> Текущая версия: **0.8.0**. Совместимость проверялась по коду SillyTavern `release` 1.19.0, commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`. Локально прошли **121 клиентский тест и 44 серверных теста**. Live-проверки SillyTavern и моделей не проводились. Реализованы этапы 1–5: история, сущности, память, причинные эмоции и отношения, отложенные реакции, события мира и очередь визуального режиссёра. Качество психологической интерпретации и генерации изображений реальными моделями не измерялось.
+**Version 1.0.0.** Local validation: **126 client tests, 44 server tests and 27 golden scenario mappings passed**. Integration was inspected against SillyTavern 1.19.0 release commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`. Live SillyTavern, model and ComfyUI checks were excluded by agreement. Version 1.0.0 does not imply full empirical acceptance of every specification requirement. See the [final requirements review](reports/final_requirements_review.md).
 
-## Содержание
+## How it works
 
-- [Что решает Narrative Engine](#что-решает-narrative-engine)
-- [Как устроен один ход](#как-устроен-один-ход)
-- [Профили и отдельные промпты состояний](#профили-и-отдельные-промпты-состояний)
-- [Возможности](#возможности)
-- [Установка расширения](#установка-расширения)
-- [Выбор провайдера Режиссёра](#выбор-провайдера-режиссёра)
-- [Установка серверного плагина](#установка-серверного-плагина)
-- [Настройка](#настройка)
-- [Состояние, память и восстановление](#состояние-память-и-восстановление)
-- [Эмоции, отношения и мир](#эмоции-отношения-и-мир)
-- [Память кампании и языки](#память-кампании-и-языки)
-- [Обновление с предыдущих версий](#обновление-с-предыдущих-версий)
-- [Спрайты, группы и VN-режим](#спрайты-группы-и-vn-режим)
-- [Визуальный режиссёр и ComfyUI](#визуальный-режиссёр-и-comfyui)
-- [Slash-команды](#slash-команды)
-- [Безопасность](#безопасность)
-- [Диагностика и устранение проблем](#диагностика-и-устранение-проблем)
-- [Разработка и тестирование](#разработка-и-тестирование)
-- [Ограничения](#ограничения)
+1. PRE retrieves permitted memories and prepares a compact Director packet.
+2. SillyTavern runs the normal RP generation.
+3. POST extracts changes, audits the response and commits accepted deltas.
+4. Strict mode permits one targeted rewrite and one re-audit. Unresolved changes stay proposed/pending.
 
-## Что решает Narrative Engine
+Records are immutable; status decisions are appended separately. Edit, delete and swipe rebuild the active branch. Late completions are bound to their originating chat and generation. If Director is unavailable, text generation continues and missed work can be reconciled later.
 
-В длинной ролевой игре модель постепенно начинает забывать, где находятся персонажи, что на них надето, кто чем владеет, какие секреты кому известны и какие обещания ещё не выполнены. Увеличение контекста помогает лишь частично: старый диалог становится дорогим, содержит шум и не гарантирует последовательность.
+## Features
 
-Narrative Engine разделяет две задачи:
+- Typed entities, item owner/holder/container, spatial constraints and an extensible parameter registry.
+- Checkpoints, migration backups, atomic state/memory commits and offline storage recovery.
+- Session-only, campaign and selective continuity; visibility filters run before retrieval in every audit mode.
+- Unicode lexical fallback and optional multilingual embeddings with SQLite FTS5/sqlite-vec caching.
+- Causal emotions, directed relationships, hidden/expressed feelings, delayed processing and game-time decay.
+- Time, weather, scheduled events and configurable NPC detail.
+- Existing sprite selection, scene descriptors, visual profiles and asynchronous ComfyUI jobs.
+- Diagnostics for latency, reported tokens, response validity, strict rewrites and current subsystem state.
 
-| Компонент | Ответственность |
+## Install and update
+
+1. Open **Extensions ? Install extension** in SillyTavern.
+2. Enter `https://github.com/Gam1409/Narrative-Engine` and reload.
+3. Open **Extensions ? Narrative Engine**, select the Director provider and model/profile, and test the connection.
+4. Enable the extension and choose the desired story systems.
+
+When updating to 1.0.0, update both the extension and any installed server plugin, then restart SillyTavern. Visual generation stays disabled until explicitly enabled and configured. Export world state before changing a long-running campaign. World export does not include visual profiles or image jobs.
+
+### Director providers
+
+| Provider | Configuration |
 | --- | --- |
-| **RP-модель SillyTavern** | Пишет реплики, действия и художественный текст |
-| **Director-модель** | Готовит краткий пакет фактов перед ответом и разбирает результат после ответа |
-| **Структурированное состояние** | Хранит сцену, персонажей, время, предметы, отношения, знания и сюжетные линии |
-| **Эпизодическая память** | Возвращает только релевантные старые события, а не весь архив чата |
-| **Аудитор** | Ищет противоречия, телепортацию знаний, нарушение канона и управление персонажем пользователя |
-| **Sprite Director** | Выбирает только существующий файл спрайта из предварительно отфильтрованного списка |
+| Server plugin | Recommended for secret-bearing remote APIs and SQLite storage; see below. |
+| OpenAI-compatible | Browser-accessible endpoint without a secret; CORS must allow requests. |
+| Ollama | Local HTTP endpoint. |
+| SillyTavern connection profile | A separate saved profile for Director; the main RP connection stays selected. |
+| Current SillyTavern connection | Uses the current ST generation configuration and its supported capabilities. |
 
-Главный принцип: **Режиссёр не пишет историю вместо RP-модели**. Он передаёт ей ограничения и подсказки, а после генерации сохраняет только подтверждённые изменения.
+For OpenRouter, select it under **API Connections ? Chat Completion**, save the key and model in ST, save a Connection Profile, then select that profile in Narrative Engine. The extension stores its ID, not the key. Other compatible Chat/Text Completion profiles use the same integration. A profile connection test checks local availability and compatibility without a paid generation; the first PRE call is the actual network test. Missing/deleted profiles produce an explicit error.
 
-## Как устроен один ход
+### Server plugin
 
-```mermaid
-flowchart LR
-    U[Сообщение пользователя] --> PRE[PRE Director]
-    S[(Состояние и память)] --> PRE
-    PRE --> P[Краткий Director packet]
-    P --> RP[Обычная RP-модель]
-    RP --> R[Готовый ответ]
-    R --> POST[POST Director]
-    POST --> A{Audit}
-    A -->|валидно| D[Применить delta]
-    A -->|STRICT: серьёзная ошибка| W[Одна точечная перезапись]
-    W --> POST2[Одна повторная проверка]
-    D --> S
-    POST2 --> A2{Повторный audit}
-    A2 -->|валидно| D
-    A2 -->|ошибка| Q[Сохранить предложение без применения]
-```
-
-Обычный ход содержит:
-
-1. **Один PRE-вызов** Режиссёра перед RP-генерацией.
-2. **Один обычный вызов** RP-модели SillyTavern.
-3. **Один POST-вызов** после получения полного ответа.
-
-Профили состояния собираются в единый системный промпт и **не увеличивают число вызовов**. POST запускается после полного ответа, а не на каждом токене стриминга. В режиме строгого аудита допускается максимум одна точечная перезапись и одна повторная проверка.
-
-Каждый асинхронный запрос привязан к чату, сессии и генерации. При переключении чата незавершённая работа отменяется, а запоздавший ответ не может изменить состояние другого чата. Если Режиссёр недоступен, основной RP-запрос продолжается без устаревшего пакета.
-
-## Профили и отдельные промпты состояний
-
-Да — для каждого состояния используется отдельный промпт. В каталоге [`prompts/states`](prompts/states) находятся 24 независимых фрагмента: восемь систем × три уровня строгости.
-
-### Готовые профили
-
-| Профиль | Для чего подходит | Акцент |
-| --- | --- | --- |
-| **Balanced** | Большинство ролевых игр | Ровный контроль всех систем |
-| **Strict continuity** | Детектив, survival, сложная физическая сцена | Физическая непрерывность, знания и точная память |
-| **Living world** | Кампания с расписаниями, NPC и событиями вне кадра | Сюжетные долги и причинное развитие мира |
-| **Character driven** | Отношения, драма, визуальная новелла | Характер, отношения, знания и эмоции |
-| **Custom** | Точная ручная настройка | Свой уровень для каждой из восьми систем |
-
-### Уровни строгости
-
-| Уровень | Поведение |
-| --- | --- |
-| **Light** | Фиксирует только крупные и очевидные изменения, почти не вмешивается |
-| **Balanced** | Отслеживает значимые детали, но не превращает декоративный текст в факты |
-| **Strict** | Требует текстового основания, жёстко соблюдает причинность и границы знаний |
-
-В режиме **Custom** отдельно настраиваются Continuity, Character state, Relationships, Knowledge / secrets, Plot manager, World simulation, Memory retrieval и Sprite director. Профиль выбирается в **Extensions → Narrative Engine → Director profile**. Ручная матрица появляется только для Custom. Отключённая Story system не включается в собранный промпт.
-
-Тексты можно осознанно редактировать в [`prompts/states`](prompts/states): для каждой системы есть `light.md`, `balanced.md` и `strict.md`. Изменения подхватываются после перезагрузки расширения или кнопки **Clear transient cache**.
-
-## Возможности
-
-### Непрерывность и состояние
-
-- сцена, локация, присутствующие персонажи и внутриигровое время;
-- позы, одежда, травмы, удерживаемые предметы и физические объекты;
-- отношения между любыми парами персонажей;
-- индивидуальные границы знаний, ложные убеждения и секреты;
-- сюжетные линии, статусы, зависимости, дедлайны и narrative debt;
-- планы NPC и события мира вне кадра;
-- атомарные immutable-delta с источником и уверенностью;
-- checkpoints и детерминированная перестройка после edit/delete/swipe.
-
-### Память
-
-- разрешённые сведения для участников сцены и получателей генерации;
-- компактное состояние текущей сцены;
-- Top-K поиск с фильтрами видимости, кампании, сессии, статуса и игрового времени;
-- Unicode-поиск и опциональные embeddings с SQLite-кэшем, FTS5 и sqlite-vec;
-- замещение устаревших фактов по factKey или supersedes с восстановлением при откате;
-- ограниченный бюджет контекста вместо полного старого диалога.
-
-### Аудит
-
-Режиссёр проверяет положение, одежду, предметы, двери, хронологию, телепортацию персонажей и знаний, противоречия канону, выдуманные действия пользователя, резкий слом характера, забытые сюжетные обязательства и стагнацию.
-
-Режимы:
-
-- `off` — проверка не влияет на принятие ответа;
-- `soft` — ошибка сохраняется в диагностике, некорректная delta не применяется;
-- `strict` — для серьёзной ошибки разрешена одна минимальная перезапись с повторной проверкой.
-
-## Установка расширения
-
-1. Откройте **Extensions → Install extension**.
-2. Вставьте адрес:
-
-   ```text
-   https://github.com/Gam1409/Narrative-Engine
-   ```
-
-3. Подтвердите установку и перезагрузите SillyTavern.
-4. Откройте **Extensions → Narrative Engine**.
-5. Выберите провайдера, его модель или Connection Profile и нужные Story systems.
-6. Нажмите **Test connection**.
-7. После успешной проверки включите **Enabled**.
-
-Если доступ к репозиторию ограничен, среда, из которой SillyTavern устанавливает расширение, должна иметь соответствующие права. При ручной установке скопируйте содержимое репозитория в каталог пользовательских расширений SillyTavern.
-
-## Выбор провайдера Режиссёра
-
-| Provider | Когда использовать | Особенности |
-| --- | --- | --- |
-| **Server plugin** | Рекомендуемый вариант для удалённого API и постоянной установки | Ключ хранится только в env сервера, состояние — в SQLite |
-| **OpenAI-compatible** | Локальный endpoint без авторизации | Прямой запрос браузера; endpoint должен разрешать CORS |
-| **Ollama** | Локальная Ollama | Работает через локальный HTTP API |
-| **SillyTavern connection profile** | OpenRouter, Anthropic, Custom endpoint и другие профили ST | Использует отдельный сохранённый профиль, не переключая основное RP-подключение |
-| **Current SillyTavern connection** | Быстрая проба без отдельного endpoint | Использует текущую конфигурацию ST и зависит от её возможностей |
-
-В браузерной части намеренно **нет поля API key**: `extensionSettings` сохраняются открытым текстом. Для сервиса с секретным ключом используйте Connection Profile SillyTavern или серверный плагин.
-
-Рекомендуется отдельная модель, которая стабильно возвращает JSON и хорошо следует схеме. Температура Режиссёра по умолчанию низкая (`0.2`), потому что здесь важнее воспроизводимость.
-
-### OpenRouter и другие Connection Profiles SillyTavern
-
-Narrative Engine умеет выполнять PRE/POST через официальный `ConnectionManagerRequestService`. Режиссёр получает отдельный профиль, а основная RP-модель продолжает работать через своё текущее подключение.
-
-Для OpenRouter:
-
-1. В SillyTavern откройте **API Connections → Chat Completion → OpenRouter**.
-2. Авторизуйте OpenRouter или сохраните API key средствами SillyTavern.
-3. Выберите модель и нужный preset.
-4. Сохраните настройку как **Connection Profile**, например `Narrative Director — OpenRouter`.
-5. В Narrative Engine выберите provider **SillyTavern connection profile**.
-6. Выберите созданный профиль в поле **Connection profile**.
-7. Нажмите **Test connection**, затем включите движок.
-
-Тем же способом поддерживаются Custom OpenAI-compatible endpoint, Anthropic и совместимые Text Completion профили. Конкретный набор определяется самим Connection Manager. Модель, URL, secret ID, generation preset, instruct preset и proxy берутся из выбранного профиля; Narrative Engine передаёт только сообщения Режиссёра, лимит ответа и безопасный override температуры.
-
-Ключи не копируются в настройки Narrative Engine и не отображаются в списке: расширение хранит только ID профиля. Удаление выбранного профиля переводит подключение в понятное состояние ошибки, пока не будет выбран другой.
-
-**Test connection** для профиля выполняет бесплатную локальную проверку наличия и совместимости профиля, но не отправляет тестовую генерацию, чтобы случайно не расходовать баланс. Первый реальный PRE-запрос остаётся фактической сетевой проверкой.
-
-## Установка серверного плагина
-
-Серверный плагин необязателен, но даёт безопасный proxy к Director API и постоянное SQLite-хранилище.
-
-1. Скопируйте каталог [`server-plugin`](server-plugin) в `SillyTavern/plugins/narrative-engine`.
-2. Установите runtime-зависимости:
-
-   ```powershell
-   cd SillyTavern/plugins/narrative-engine
-   npm install --omit=dev
-   ```
-
-3. В конфигурации SillyTavern включите плагин:
-
-   ```yaml
-   enableServerPlugins: true
-   ```
-
-4. Задайте переменные окружения и перезапустите SillyTavern:
-
-   ```text
-   NARRATIVE_ENGINE_DIRECTOR_URL=https://director.example/v1
-   NARRATIVE_ENGINE_DIRECTOR_MODEL=qwen3-coder-heretic
-   NARRATIVE_ENGINE_DIRECTOR_API_KEY=your-secret
-   ```
-
-### Переменные окружения
-
-| Переменная | По умолчанию | Назначение |
-| --- | --- | --- |
-| `NARRATIVE_ENGINE_DIRECTOR_URL` | пусто | Базовый OpenAI-compatible endpoint |
-| `NARRATIVE_ENGINE_DIRECTOR_MODEL` | пусто | Модель Режиссёра |
-| `NARRATIVE_ENGINE_DIRECTOR_API_KEY` | пусто | Секретный ключ; не отправляется в браузер |
-| `NARRATIVE_ENGINE_EMBEDDING_URL` | пусто | Базовый OpenAI-compatible URL для embeddings; сервер добавляет `/embeddings` |
-| `NARRATIVE_ENGINE_EMBEDDING_MODEL` | пусто | Модель embeddings с поддержкой нужных языков |
-| `NARRATIVE_ENGINE_EMBEDDING_API_KEY` | пусто | Серверный ключ embeddings, если необходим |
-| `NARRATIVE_ENGINE_STORAGE_DIR` | `DATA_ROOT/_storage/narrative-engine` | Каталог SQLite |
-| `NARRATIVE_ENGINE_TIMEOUT_MS` | `30000` | Timeout запроса, 1000–120000 мс |
-| `NARRATIVE_ENGINE_RETRIES` | `2` | Число повторов, 0–5 |
-| `NARRATIVE_ENGINE_BODY_LIMIT_BYTES` | `524288` | Лимит JSON-тела, 16 KiB–2 MiB |
-| `NARRATIVE_ENGINE_RATE_LIMIT` | `60` | Запросов на окно |
-| `NARRATIVE_ENGINE_RATE_WINDOW_MS` | `60000` | Длина окна rate limit |
-| `NARRATIVE_ENGINE_DIRECTOR_ALLOW_HOSTS` | пусто | Разрешённые приватные hostnames через запятую |
-
-Loopback endpoint разрешён для локальных моделей. Приватные и служебные адреса защищены от SSRF и требуют явного allowlist. URL провайдера берётся только из окружения сервера и не может быть подменён клиентским запросом.
-
-## Настройка
-
-Каждый Story system можно отключить отдельно. Это убирает соответствующие правила из промпта и запрещает применять его delta.
-
-| Настройка Story rhythm | Диапазон | По умолчанию |
-| --- | ---: | ---: |
-| Memory Top-K | 1–20 | 6 |
-| Plot interval | 1–50 | 3 |
-| Memory consolidation | 2–100 | 8 |
-| State checkpoint | 2–100 | 10 |
-| Director packet budget | 500–2000 токенов | 1500 |
-| PRE timeout | 1–120 секунд | 45 секунд |
-| POST timeout | 1–180 секунд | 60 секунд |
-
-При конфликте Режиссёр использует приоритет истины: принятое действие персонажа пользователя → свежий принятый чат → структурированное состояние → канон персонажа и мира → эпизодическая память → предположение Режиссёра. Предположение не должно незаметно превращаться в подтверждённый факт. Утверждение игрока о скрытых чувствах NPC не устанавливает эти чувства. Явные авторские изменения задаются командой `/narrative-edit-world`.
-
-## Состояние, память и восстановление
-
-В browser-режиме большие данные хранятся через `localforage`; в `chatMetadata` остаются компактное резюме, revision и ссылка на хранилище. В server-режиме используется SQLite в постоянном каталоге SillyTavern.
-
-Для каждого принятого ответа сохраняется минимальная delta. Через заданный интервал создаётся checkpoint. После редактирования, удаления или swipe чат помечается dirty и может быть перестроен повторным применением подтверждённых delta.
-
-В **Story record** можно просмотреть state, timeline, threads, memories и последний Director packet; выполнить rebuild; экспортировать или импортировать JSON. Импорт проверяется JSON Schema и должен относиться к тому же fingerprint чата.
-
-## Эмоции, отношения и мир
-
-Версия 0.7.0 отделяет оценку события, эмоции и долговременное отношение. У эмоции есть интенсивность, причина и затухание по игровому времени. Изменение отношения требует значимого события или повторяющихся однотипных взаимодействий; оно сохраняется с причинами и уверенностью. По умолчанию суммарное изменение одной направленной пары за ход ограничено 0.15.
-
-В настройках **Inner life and world simulation** доступны:
-
-- **off / light / full**: простые эмоции; настроение, оценки и ожидания; полная модель с телесным состоянием, скрытыми чувствами и отложенной обработкой;
-- **minimal / standard / living**: игровое время; погода, освещение и события; дополнительно ежедневные планы NPC;
-- пороги значимости и уверенности, число повторений, предел изменения отношений и границы длительности хода;
-- **Show private state in author inspection** — показ внутреннего состояния в окнах просмотра. По умолчанию оно скрыто; экспорт всегда содержит полное состояние.
-
-В режиме full значимое переживание назначает пересмотр на 08:00 следующего игрового дня. При скачке времени активному персонажу требуется новая оценка события; пропуск остаётся предложением для повторной обработки. Для этого нужна установленная игровая дата и время. Фоновые NPC получают облегчённые записи. События, реакции и планы сохраняются в SQLite либо браузерном хранилище и откатываются вместе с веткой чата.
-
-Скрытая подсказка передаётся только текущему персонажу, в том числе в группе по публичному characterId SillyTavern. При неизвестном получателе или генерации за игрока она не добавляется. Остальным доступны только наблюдаемые проявления. Код проверяет причины, ссылки и ограничения; смысл события и согласованность реакции с характером оценивает Director.
-
-[Настройки, пример авторского профиля, контракт и проверки этапа 4](reports/stage4_implementation.md). Планы NPC не перемещают физические сущности автоматически; условия событий пока поддерживают время и ссылку на одно событие-причину.
-
-## Память кампании и языки
-
-Перед поиском и отправкой текста в embedding API движок проверяет область памяти, видимость, статус и игровое время. Общий PRE-контекст содержит только сведения, разрешённые всем участникам сцены и фактическим получателям генерации. Эта проверка работает при `off`, `soft` и `strict`. Записи без явной видимости, спорные и замещённые факты не попадают в обычный поиск.
-
-Без embeddings используется Unicode-поиск по словам и фрагментам слов, без русского словаря форм. Он подходит для совпадений в разных письменностях, но не обеспечивает перевод или полноценный смысловой поиск. Для поиска между языками настройте три переменные `NARRATIVE_ENGINE_EMBEDDING_*` и включите **Semantic memory search (server embeddings)**. Endpoint может отличаться от Director; к нему применяется тот же allowlist хостов.
-
-Embeddings кэшируются по пользователю, чату, хэшу текста и модели. SQLite использует FTS5 и опциональный sqlite-vec; при отсутствии sqlite-vec сходство вычисляет клиент. При отказе embedding API поиск переходит на Unicode, а диагностика показывает `lexical_degraded`. Фильтры знаний сохраняются. Веса сходства, важности, персонажей, локации, давности и штрафа для истории доступны в **Memory ranking weights**. Первичная индексация требует запросов к модели; старые записи кэша автоматически не удаляются.
-
-Область памяти задаётся **до первого принятого хода**:
+Copy [server-plugin](server-plugin) to `SillyTavern/plugins/narrative-engine`, run `npm install --omit=dev` there, and set `enableServerPlugins: true` in ST configuration. Set environment variables before restarting the server:
 
 ```text
-/narrative-configure-session {"mode":"campaign","campaignId":"my-campaign"}
+NARRATIVE_ENGINE_DIRECTOR_URL=https://director.example/v1
+NARRATIVE_ENGINE_DIRECTOR_MODEL=your-model
+NARRATIVE_ENGINE_DIRECTOR_API_KEY=your-secret
 ```
 
-Вызов без аргументов показывает `sessionId`. Для продолжения кампании в новом чате передайте этот ID:
+The plugin is optional for browser-based text providers, but required for this extension's ComfyUI queue and server embeddings.
 
-```text
-/narrative-configure-session {"mode":"campaign","campaignId":"my-campaign","fromSession":"ne-a1"}
-```
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `NARRATIVE_ENGINE_DIRECTOR_URL` | empty | Fixed OpenAI-compatible base URL. |
+| `NARRATIVE_ENGINE_DIRECTOR_MODEL` | empty | Director model. |
+| `NARRATIVE_ENGINE_DIRECTOR_API_KEY` | empty | Server-side key. |
+| `NARRATIVE_ENGINE_EMBEDDING_URL` | empty | Base URL; server appends `/embeddings`. |
+| `NARRATIVE_ENGINE_EMBEDDING_MODEL` | empty | Embedding model supporting your languages. |
+| `NARRATIVE_ENGINE_EMBEDDING_API_KEY` | empty | Optional server-side embedding key. |
+| `NARRATIVE_ENGINE_COMFY_URL` | empty | Fixed ComfyUI endpoint. |
+| `NARRATIVE_ENGINE_COMFY_API_KEY` | empty | Optional server-side ComfyUI key. |
+| `NARRATIVE_ENGINE_COMFY_WORKFLOWS` | empty | Path to administrator-owned JSON workflow recipes. |
+| `NARRATIVE_ENGINE_VISUAL_JOB_TIMEOUT_MS` | 600000 | Overall job deadline; 10000-3600000 ms. |
+| `NARRATIVE_ENGINE_STORAGE_DIR` | `DATA_ROOT/_storage/narrative-engine` | Persistent SQLite directory. |
+| `NARRATIVE_ENGINE_TIMEOUT_MS` | 30000 | Server HTTP timeout; 1000-120000 ms. |
+| `NARRATIVE_ENGINE_RETRIES` | 2 | Director retry limit; 0-5. Ambiguous visual POSTs are not retried. |
+| `NARRATIVE_ENGINE_BODY_LIMIT_BYTES` | 524288 | JSON body limit; 16 KiB-2 MiB. |
+| `NARRATIVE_ENGINE_RATE_LIMIT` | 60 | Requests per rate-limit window. |
+| `NARRATIVE_ENGINE_RATE_WINDOW_MS` | 60000 | Window duration. |
+| `NARRATIVE_ENGINE_DIRECTOR_ALLOW_HOSTS` | empty | Explicit private host allowlist, shared by Director, embeddings and ComfyUI. |
 
-Замените пример `ne-a1` фактическим ID. Источник должен принадлежать той же кампании и не иметь pending-ходов.
+Loopback is allowed for local services. Private/protected destinations require explicit configuration. Browser requests cannot override server provider URLs. Server plugins run with ST's privileges, not in a sandbox.
 
-| Режим | Что переносится |
-| --- | --- |
-| `session_only` | Ничего из другой сессии; используется локальная память |
-| `campaign` | Снимок состояния, отношений, памяти и открытых сюжетных линий |
-| `selective` | Память и открытые линии по спискам `memoryIds`, `entities` или `types` |
+## Settings and simulation
 
-Перенос создаёт снимок: последующие изменения исходного чата не переписывают новую сессию. Selective не копирует частичный граф физических сущностей. [Подробные примеры и измерения](reports/stage3_implementation.md).
+Balanced, Strict continuity, Living world and Character driven presets select the eight story systems' prompt levels. Custom allows per-system Light/Balanced/Strict settings. [Prompt fragments](prompts/states) are editable; reload or clear transient cache after editing. Disabled systems are excluded from the prompt and their deltas are not applied.
 
-## Обновление с предыдущих версий
+Audit modes: **off** does not gate acceptance on model audit, **soft** keeps invalid changes unapplied, and **strict** permits one rewrite. Code validation, knowledge filtering and agency protection remain mandatory.
 
-Для перехода на 0.8.0 обновите расширение и серверный плагин, затем перезапустите SillyTavern. Визуальную генерацию включайте после настройки ComfyUI и файла workflow; без неё текстовые функции продолжают работать. Экспорт мира не включает визуальные профили и очередь изображений.
+Inner-life modes are **off / light / full**; world simulation levels are **minimal / standard / living**. Full mode can schedule reassessment for the next game morning after a significant event. A valid game date/time is required. Background NPCs use lighter detail. Relationship changes need causal evidence and confidence; default maximum directed-pair change per turn is 0.15. Plans do not automatically move physical entities.
 
+Private guidance is sent only to a known current character recipient. Player impersonation or an ambiguous group recipient receives no private guidance. Private state is hidden in author inspection by default; enabling **Show private state in author inspection** reveals it. World export always includes the complete state.
 
-Обновляйте расширение и серверный плагин вместе. После копирования обновлённого плагина выполните `npm ci --omit=dev` в его каталоге и перезапустите SillyTavern, затем перезагрузите страницу расширения.
+Story rhythm defaults: memory Top-K 6 (1-20), plot interval 3 (1-50), memory consolidation 8 (2-100), checkpoints 10 (2-100), packet budget 1500 (500-2000), PRE timeout 45 s (1-120), POST timeout 60 s (1-180).
 
-История использует неизменяемые записи ходов и отдельные решения о статусах. SQLite создаёт резервную копию перед миграцией старой базы. Старые записи без привязки к ветке требуют повторного анализа актуального чата; если Director недоступен, они остаются pending. **Minimum confidence** задаёт порог принятия изменений (по умолчанию 0.5).
+## State, memory and recovery
 
-Состояние использует schemaVersion 2: собственник отделён от физического положения, доступны пользовательские типы и параметры. Зарегистрированные сущности меняются через типизированные `ops`; старые свободные карты сохранены. Явная авторская правка имеет формат `/narrative-edit-world {"reason":"...","ops":[...]}` и сохраняется с резервной копией. При pending-ходе можно исправить подтверждённый префикс и затем выполнить `/narrative-rebuild-state`.
+Browser storage uses localforage; chat metadata contains compact summaries and storage references. Server storage uses SQLite with separate journal, decision, memory and checkpoint rows. Recovery preserves offline copies and refuses conflicting remote writes.
 
-**Reconnect storage** и `/narrative-reconnect-storage` восстанавливают подключение по проверенной локальной копии. При конфликте с серверной историей автоматической перезаписи нет. Если проверенной копии нет, движок сообщает об ошибке хранения.
+Accepted player actions take precedence over stale state; a player's statement about an NPC's hidden feelings does not itself establish those feelings. Use explicit author edits to correct canon or the registry. [Parameter/operation guide](reports/stage2_implementation.md) and [inner-life guide](reports/stage4_implementation.md) describe the contracts.
 
-- [История, миграция и восстановление — этап 1](reports/stage1_implementation.md).
-- [Сущности, параметры и авторские операции — этап 2](reports/stage2_implementation.md).
-- [Память, сессии и команды — этап 3](reports/stage3_implementation.md).
+Memory visibility, campaign/session scope, status and game time are filtered before ranking or sending text to an embedding service. Superseded facts are excluded; rollback restores compatible facts. Semantic search is optional and degrades to Unicode lexical retrieval. Lexical matching is not universal semantic understanding. The multilingual fixture benchmark does not establish real embedding-model quality. See [memory guide](reports/stage3_implementation.md).
 
-## Спрайты, группы и VN-режим
+For pending reconciliation, restore Director connectivity and run **Rebuild state**. To reconnect storage, use the dedicated command below. Clear transient cache clears prompts and diagnostics, not persistent world history.
 
-В Character Card можно добавить настройки:
+## Sprites and ComfyUI
+
+Enable ST Character Expressions and supply a sprite manifest for sprite selection. The manifest shortlist can be large; code filters it before Director selects an existing filename or `KEEP`. Group selection uses the actual response speaker. Visual profiles also constrain expressions and poses. In a character card, set `data.extensions.narrative_engine.spriteManifest` to an HTTP(S) manifest URL or an inline array:
 
 ```json
-{
-  "data": {
-    "extensions": {
-      "narrative_engine": {
-        "spriteManifest": "https://example.test/kenzie-sprites.json",
-        "stateDefaults": {},
-        "directorHints": ["Kenzie hides fear behind dry humor."]
-      }
-    }
-  }
-}
+[{"file":"neutral.png","character":"Seraphina","expression":"neutral","pose":"standing","costume":"default"}]
 ```
 
-Манифест может содержать тысячи вариантов. Код заранее фильтрует их по персонажу, костюму, семейству эмоций и позе; Режиссёр получает короткий список. Допустимый результат — точное имя файла из списка или `KEEP`.
+Files must already exist in Character Expressions. `file` is a basename, not a path. Optional fields include intensity, gaze and framing. The extension uses ST's `/expression-set` and `/costume` commands.
 
-Смена выполняется публичными командами Character Expressions `/expression-set` и `/costume`. В group chat фактический говорящий определяется по avatar/name сообщения. Выбор для одного персонажа не сбрасывает спрайты остальных.
+ComfyUI generation is disabled by default. Copy the [example recipe](server-plugin/examples/comfy-workflows.example.json) to a server-owned configuration file, replace the checkpoint placeholder with an installed model and set the ComfyUI environment variables. Enable Visual director and select `scene_full`.
 
-## Визуальный режиссёр и ComfyUI
+Manual illustrations do not change canon. Automatic generation skips unchanged scenes already requested. Jobs persist in SQLite; results carry a scene hash and originating message reference. Stale outputs remain inspectable but are excluded from the current gallery. A lost submission acknowledgement does not cause a blind duplicate POST; known prompt IDs can resume polling after restart.
 
-В версии 0.8.0 иллюстрация строится по принятому состоянию сцены и не меняет канон. Отдельные профили задают внешность, одежду, референсы, LoRA и допустимые позы/эмоции. Профили также участвуют в выборе спрайтов.
+The seed can be reused. ControlNet, IP-Adapter, masks, LoRA and reference-image integration require fixed bindings and compatible server-side nodes/models. Partial redraw requires a separate configured workflow; switches do not install assets or create masks. The example does not prove image quality or identity continuity. See the [complete workflow/profile guide](reports/stage5_implementation.md).
 
-Генерация выключена по умолчанию. Для неё нужен серверный плагин, адрес `NARRATIVE_ENGINE_COMFY_URL` и файл рецептов `NARRATIVE_ENGINE_COMFY_WORKFLOWS`. В комплекте есть [пример workflow](server-plugin/examples/comfy-workflows.example.json): замените имя checkpoint на установленную модель. Затем включите **Visual director** и выберите `scene_full`.
+## Commands
 
-- `/narrative-generate-illustration` ставит отдельное задание в очередь; текстовая игра продолжается.
-- Автоматический режим реагирует на визуальные изменения сцены. Seed можно сохранять между кадрами.
-- Кнопка просмотра визуальных заданий показывает готовые актуальные изображения. Результаты старой ветки помечаются устаревшими.
-- Очередь хранится в SQLite и восстанавливается после перезапуска. Неоднозначно принятую отправку движок автоматически не повторяет.
-- ControlNet, IP-Adapter, маски и частичная перерисовка требуют настроенного серверного workflow. Переключатели не устанавливают модели и узлы.
+All 18 commands use full English names with **no aliases**. Story language is unrestricted.
 
-[Настройка, формат профилей и ограничения этапа 5](reports/stage5_implementation.md). Live-генерация, сохранение внешности и качество частичной перерисовки не проверялись. Визуальные профили и задания хранятся отдельно и не входят в экспорт канонического мира.
-
-## Slash-команды
-
-Все 18 команд используют полные английские имена **без алиасов**. Старые сокращённые имена больше не регистрируются; обновите свои макросы и Quick Replies.
-
-| Команда | Назначение |
+| Command | Purpose |
 | --- | --- |
-| `/narrative-engine on` / `/narrative-engine off` | Включить или выключить движок |
-| `/narrative-configure-session` | Показать ID сессии и область памяти либо настроить новую сессию |
-| `/narrative-edit-world` | Применить явную авторскую правку в формате `{reason,ops}` |
-| `/narrative-show-registry` | Показать типы сущностей и определения параметров |
-| `/narrative-show-state` | Показать структурированное состояние |
-| `/narrative-show-threads` | Показать сюжетные линии |
-| `/narrative-show-timeline` | Показать внутриигровое время |
-| `/narrative-show-memory` | Показать сохранённую память автору |
-| `/narrative-rebuild-state` | Восстановить актуальную ветку и повторить обработку pending-ходов |
-| `/narrative-reconnect-storage` | Восстановить подключение к хранилищу с проверкой конфликтов |
-| `/narrative-show-audit` | Показать последний audit |
-| `/narrative-show-director-context` | Показать последний Director packet |
-| `/narrative-refresh-sprites` | Повторить выбор спрайта последнего ответа |
-| `/narrative-export-world` | Вернуть экспорт состояния в JSON |
-| `/narrative-describe-scene` | Показать визуальное описание принятой сцены |
-| `/narrative-set-visual-profile` | Сохранить визуальный профиль сущности из JSON |
-| `/narrative-generate-illustration` | Поставить иллюстрацию в очередь ComfyUI |
-| `/narrative-show-visual-jobs` | Показать задания и актуальность результатов |
+| `/narrative-engine on` or `/narrative-engine off` | Enable/disable the extension. |
+| `/narrative-configure-session` | Inspect or configure session/campaign/selective scope. |
+| `/narrative-edit-world` | Explicit author correction using `{reason,ops}` and optional simulation data. |
+| `/narrative-show-registry` | Inspect entity types and parameters. |
+| `/narrative-show-state` | Inspect current state, respecting the private-inspection setting. |
+| `/narrative-show-threads` | Inspect plot threads. |
+| `/narrative-show-timeline` | Inspect game time. |
+| `/narrative-show-memory` | Inspect memories as the author. |
+| `/narrative-rebuild-state` | Replay the active branch and reconcile pending turns. |
+| `/narrative-reconnect-storage` | Recover storage while preserving conflicts. |
+| `/narrative-show-audit` | Inspect the last audit. |
+| `/narrative-show-director-context` | Inspect the last packet. |
+| `/narrative-refresh-sprites` | Repeat sprite selection. |
+| `/narrative-export-world` | Return full world JSON. |
+| `/narrative-describe-scene` | Describe the accepted visual scene. |
+| `/narrative-set-visual-profile` | Store a profile from JSON. |
+| `/narrative-generate-illustration` | Queue an illustration. |
+| `/narrative-show-visual-jobs` | Inspect job status and scene freshness. |
 
-Команды просмотра предназначены для автора и могут показывать закрытые сведения. Контекст персонажей формируется отдельно с фильтрацией знаний. Имена, справка и ответы команд — на английском; язык истории не ограничен.
+Author inspection is distinct from the filtered context delivered to characters. Retired shortened commands are not registered; update old macros/Quick Replies.
 
-## Безопасность
+## Diagnostics and troubleshooting
 
-- API-ключи не попадают в `extensionSettings`, chat metadata, диагностику или логи.
-- Сервер использует фиксированный endpoint из окружения, а не URL из запроса.
-- DNS/IP-проверка блокирует защищённые сети без явного разрешения.
-- Есть лимиты тела и ответа, rate limit, timeout и ограниченные retry.
-- Клиентские system-фрагменты добавляются после неизменяемого серверного prompt; роли, число и размер сообщений валидируются.
-- SQL-запросы параметризованы.
-- Ответ модели не исполняется как JavaScript; JSON проходит извлечение, repair и Schema-валидацию.
-- Серверные плагины SillyTavern не изолированы sandbox-механизмом — устанавливайте только проверенный код.
+Director trace reports provider, PRE/POST latency, state summaries, memory mode, audit, sprite selection, tokens and errors. Quality metrics count invalid extracted/schema-validated responses before repair. Strict rewrite rate uses strict POST processing attempts, including reconciliation retries. Counters cover the extension lifetime; missing measurements are null. Visual subsystem state is last-observed status, not a live health assertion. Diagnostic export includes the subsystem summary.
 
-## Диагностика и устранение проблем
+- **Director offline:** check provider URL/model, CORS for browser providers, server env and `/api/plugins/narrative-engine/health`.
+- **Missing server routes:** check plugin location, dependencies, `enableServerPlugins`, then restart ST.
+- **Connection profile error:** enable Connection Manager, recreate/select the profile and refresh its authorization in ST.
+- **Unchanged sprites:** enable Character Expressions, check manifest files and remember `KEEP` can be intentional.
+- **Stale state:** rebuild the active branch; resolve pending Director or storage errors first.
+- **Visual failure:** inspect the job and verify the installed checkpoint, recipe bindings and optional nodes. Text play remains available.
 
-В **Director trace** видны статус провайдера, PRE/POST latency, сцена, время, персонажи, threads, retrieved memories, audit, спрайты, оценка токенов и безопасные ошибки.
+## Development and local verification
 
-### Director offline
-
-- проверьте endpoint и модель;
-- для browser endpoint проверьте CORS;
-- для server provider проверьте env и `/api/plugins/narrative-engine/health`;
-- перезапустите SillyTavern после изменения окружения.
-
-### Server plugin route missing
-
-- проверьте каталог `SillyTavern/plugins/narrative-engine`;
-- установите зависимости внутри него;
-- включите `enableServerPlugins: true`;
-- перезапустите сервер, а не только вкладку браузера.
-
-### Connection Profile отсутствует или не работает
-
-- убедитесь, что встроенный Connection Manager включён;
-- создайте профиль с поддерживаемым Chat Completion или Text Completion API;
-- после изменения профиля выберите его заново в Narrative Engine;
-- ошибка `401` означает, что ключ или авторизация профиля требуют обновления в SillyTavern;
-- локальная проверка профиля не расходует токены, а реальное соединение проверяется первым PRE-запросом.
-
-### Спрайт не меняется
-
-- включите Character Expressions;
-- проверьте sprite manifest и наличие файла в shortlist;
-- помните, что при слабом изменении эмоции `KEEP` ожидаем;
-- используйте `/narrative-refresh-sprites` для повторного выбора.
-
-### State pending reconciliation
-
-POST не был безопасно применён. Восстановите Director, выполните health check и запустите **Rebuild state** или `/narrative-rebuild-state`.
-
-### Старые факты после edit/delete/swipe
-
-Выполните `/narrative-rebuild-state`: движок восстановит checkpoint и повторно применит delta принятых сообщений.
-
-Кнопка **Clear transient cache** очищает кэш базовых и модульных промптов и диагностику, но не удаляет постоянное состояние и память.
-
-## Разработка и тестирование
-
-Расширение требует Node.js 20+ для разработки. Серверный плагин заявляет Node.js 20, 22, 23 или 24; текущие проверки выполнены на Windows с Node.js 24.14.0. Серверным тестам нужны `better-sqlite3` и платформенный пакет sqlite-vec; клиентские тесты запускаются без них.
+Client development requires Node 20+. Server package supports Node 20, 22, 23 or 24; recorded verification used Windows Node 24.14.0. Server tests require better-sqlite3 and the platform sqlite-vec package.
 
 ```powershell
 npm ci --prefix server-plugin
 npm test
 npm run test:server
+npm run test:golden
+npm run test:load
 npm run check
 npm pack --dry-run
 ```
 
-Тесты покрывают атомарные delta, rollback, migrations, checkpoints/rebuild, retrieval на 1000 эпизодах, manifest на 2000 спрайтов, stale request gate, JSON repair, group speaker resolution, provider fallback, server routes, user scoping, SSRF, limits и реальный SQLite smoke test.
+The [golden catalog](tests/fixtures/golden-scenarios.json) links G1-G27 prompts and expected outcomes to executed scripted tests. It is not a set of imported ST chats or evidence of model quality. Importable manual chat fixtures are outside the agreed scope.
 
-**Результат для 0.8.0:** 121 клиентский тест и 44 серверных теста. Проверены синтаксис JavaScript, JSON-схемы и упаковка. Набор включает фильтры знаний, откат замещённых фактов, перенос сессий, Unicode-поиск, изоляцию кэша и регистрацию команд без алиасов. [Сводка проверок](reports/stage5/checks.json). Live-проверки и качество реальной embedding-модели не измерялись.
+The same full replay benchmark with 3000 small deltas and 300 entities improved from **9.49 s to 4.27 s median (2.22x)**. Retrieval over 30000 memories took about 0.61 s; scene extraction covered six characters. Both before/after replay runs used CPU profiling. Three samples do not establish a cross-machine latency guarantee. Every replayed state remains validated.
 
-Материалы проекта:
+[Verification summary](reports/stage6/checks.json), [stage 6 report](reports/stage6_implementation.md), [performance evidence](reports/stage6/rebuild-comparison.json), [acceptance matrix](reports/acceptance_matrix.md), [architecture decisions](reports/architecture_decisions.md).
 
-- [`reports/acceptance_matrix.md`](reports/acceptance_matrix.md) — матрица автоматической и live-приёмки;
-- [`reports/st_upstream_preflight.md`](reports/st_upstream_preflight.md) — проверка API SillyTavern;
-- [`reports/architecture_decisions.md`](reports/architecture_decisions.md) — архитектурные решения;
-- [`reports/rooms_reference_analysis.md`](reports/rooms_reference_analysis.md) — анализ Rooms.
+## Known limits
 
-Upstream-источники:
+- No live ST UI/group/VN, real Director, embedding or ComfyUI quality validation was performed.
+- Legacy knowledge structures remain flexible. Low-confidence/disputed batches stay proposed/pending; there is no operation-level partial acceptance or separate ask-player policy UI.
+- Event conditions and autonomous NPC movement are limited; psychological inference depends on the Director model.
+- Context filtering covers Narrative Engine's additions, not history/cards independently included by ST.
+- Arbitrary semantic contradictions are not resolved automatically; supersession needs explicit links or fact keys.
+- Custom visual workflows, automatic mask generation, image identity and partial-redraw quality remain outside verified functionality.
+- Visual jobs have no automatic retention cleanup. Visual profiles/jobs are not included in canonical world export; ComfyUI owns image files.
 
-- [SillyTavern](https://github.com/SillyTavern/SillyTavern/tree/release);
-- [документация по расширениям](https://docs.sillytavern.app/for-contributors/writing-extensions/);
-- [документация по server plugins](https://docs.sillytavern.app/for-contributors/server-plugins/);
-- [Rooms](https://github.com/sigmareaver/rooms) — архитектурный референс без копирования кода.
+The [requirements review](reports/final_requirements_review.md) distinguishes local implementation, partial requirements and excluded live proof. LLM output is untrusted data; it is never executed as shell, JavaScript or SQL. Operation validation, server-side keys, fixed endpoints, request limits and user scoping protect the implemented boundaries without claiming universal prompt-injection resistance.
 
-## Ограничения
-
-- Реальная модель может ошибаться при оценке событий и черт характера; локальные проверки подтверждают контракты и восстановление состояния, но не психологическое качество генерации.
-- Фильтры ограничивают контекст, добавляемый Narrative Engine. Они не удаляют историю и карточки, которые SillyTavern самостоятельно передаёт RP-модели.
-- Автоматическое замещение фактов требует factKey или supersedes; произвольные смысловые противоречия код не распознаёт.
-- Качество delta зависит от способности Director-модели строго возвращать JSON.
-- Движок снижает число противоречий, но не гарантирует художественную корректность любой внешней модели.
-- Нестандартные sprite manifests могут потребовать адаптации полей.
-- Автотесты не заменяют live-проверку с вашими карточками, World Info, group chat, VN layout и Character Expressions.
-- Перед постоянной кампанией рекомендуется экспортировать состояние и проверить один тестовый чат.
-
-## Структура проекта
-
-```text
-Narrative-Engine/
-├─ index.js, manifest.json, settings.html, style.css
-├─ src/
-│  ├─ director/       # PRE/POST и модульные prompt bundles
-│  ├─ runtime/        # жизненный цикл хода и диагностика
-│  ├─ state/          # состояние, delta, timeline, checkpoints
-│  ├─ memory/         # retrieval и browser/server storage
-│  ├─ providers/      # ST profiles, OpenAI-compatible, Ollama, server proxy
-│  ├─ sprites/        # manifests, shortlist и применение
-│  ├─ visual/         # описание сцены, профили и клиент очереди ComfyUI
-│  └─ ui/             # консоль настроек и действия
-├─ prompts/states/    # 8 состояний × light/balanced/strict
-├─ schemas/           # JSON Schema контрактов
-├─ server-plugin/     # безопасный proxy и SQLite
-├─ tests/             # клиентские тесты
-└─ reports/           # проверка ТЗ и upstream
-```
-
-Лицензия: [MIT](LICENSE).
+License: [MIT](LICENSE).

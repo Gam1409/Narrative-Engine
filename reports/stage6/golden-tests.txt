@@ -1,0 +1,696 @@
+
+# tests/entities.test.js
+TAP version 13
+# Subtest: G1 taking an item replaces its table position, G2 transfer preserves ownership
+ok 1 - G1 taking an item replaces its table position, G2 transfer preserves ownership
+  ---
+  duration_ms: 7.4098
+  type: 'test'
+  ...
+# Subtest: movement validates references, holder types, cycles and rejects bypass relations atomically
+ok 2 - movement validates references, holder types, cycles and rejects bypass relations atomically
+  ---
+  duration_ms: 2.9979
+  type: 'test'
+  ...
+# Subtest: parameter rename migrates values, keeps aliases, and allows historical keys
+ok 3 - parameter rename migrates values, keeps aliases, and allows historical keys
+  ---
+  duration_ms: 1.9517
+  type: 'test'
+  ...
+# Subtest: registry detects normalized duplicate aliases and rejects incompatible schema changes
+ok 4 - registry detects normalized duplicate aliases and rejects incompatible schema changes
+  ---
+  duration_ms: 2.0308
+  type: 'test'
+  ...
+# Subtest: all parameter types validate values including nested objects and lists
+ok 5 - all parameter types validate values including nested objects and lists
+  ---
+  duration_ms: 9.4348
+  type: 'test'
+  ...
+# Subtest: used parameter deletion archives it, unused deletion removes it, custom types work
+ok 6 - used parameter deletion archives it, unused deletion removes it, custom types work
+  ---
+  duration_ms: 1.503
+  type: 'test'
+  ...
+# Subtest: Director cannot administer schema, overwrite registry, or execute unknown operations
+ok 7 - Director cannot administer schema, overwrite registry, or execute unknown operations
+  ---
+  duration_ms: 1.1818
+  type: 'test'
+  ...
+# Subtest: author journal survives reload/replay and follows its anchored branch
+ok 8 - author journal survives reload/replay and follows its anchored branch
+  ---
+  duration_ms: 23.041
+  type: 'test'
+  ...
+# Subtest: author correction invalidates cached continuations and can fix schema before pending retry
+ok 9 - author correction invalidates cached continuations and can fix schema before pending retry
+  ---
+  duration_ms: 9.953
+  type: 'test'
+  ...
+# Subtest: invalid operation batch is recorded as rejected with no state or memory effect
+ok 10 - invalid operation batch is recorded as rejected with no state or memory effect
+  ---
+  duration_ms: 1.9107
+  type: 'test'
+  ...
+# Subtest: G13 schema-v1 save is backed up before migration and old deltas remain replayable
+ok 11 - G13 schema-v1 save is backed up before migration and old deltas remain replayable
+  ---
+  duration_ms: 1.922
+  type: 'test'
+  ...
+# Subtest: failed migration and failed author persistence leave source and state unchanged
+ok 12 - failed migration and failed author persistence leave source and state unchanged
+  ---
+  duration_ms: 1.7291
+  type: 'test'
+  ...
+# Subtest: physical validation accepts frozen entities without mutation and rejects conflicting derived fields
+ok 13 - physical validation accepts frozen entities without mutation and rejects conflicting derived fields
+  ---
+  duration_ms: 1.0916
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 187.2571
+
+# server-plugin/tests/adapter.test.mjs
+TAP version 13
+# Subtest: G19 browser storage contract: isolation, reload, copy semantics, remove and clear
+ok 1 - G19 browser storage contract: isolation, reload, copy semantics, remove and clear
+  ---
+  duration_ms: 5.0105
+  type: 'test'
+  ...
+# Subtest: G19 server storage contract: isolation, reload, copy semantics, remove and clear
+ok 2 - G19 server storage contract: isolation, reload, copy semantics, remove and clear
+  ---
+  duration_ms: 37.3956
+  type: 'test'
+  ...
+# Subtest: C4 normalized SQLite writes append journal rows without snapshot multiplication
+ok 3 - C4 normalized SQLite writes append journal rows without snapshot multiplication
+  ---
+  duration_ms: 941.9515
+  type: 'test'
+  ...
+# Subtest: last verified snapshot survives outage and offline changes recover after reload
+ok 4 - last verified snapshot survives outage and offline changes recover after reload
+  ---
+  duration_ms: 7.8217
+  type: 'test'
+  ...
+# Subtest: uncached offline key fails closed instead of resetting the world
+ok 5 - uncached offline key fails closed instead of resetting the world
+  ---
+  duration_ms: 4.758
+  type: 'test'
+  ...
+# Subtest: lost POST acknowledgement is recovered without duplicating writes
+ok 6 - lost POST acknowledgement is recovered without duplicating writes
+  ---
+  duration_ms: 6.0721
+  type: 'test'
+  ...
+# Subtest: offline conflict preserves both versions and never overwrites remote state
+ok 7 - offline conflict preserves both versions and never overwrites remote state
+  ---
+  duration_ms: 4.6634
+  type: 'test'
+  ...
+# Subtest: CAS conflict rolls back in-memory transaction instead of entering fallback
+ok 8 - CAS conflict rolls back in-memory transaction instead of entering fallback
+  ---
+  duration_ms: 4.0632
+  type: 'test'
+  ...
+# Subtest: lost acknowledgement of normalized history reconciles by value, not JSON key order
+ok 9 - lost acknowledgement of normalized history reconciles by value, not JSON key order
+  ---
+  duration_ms: 7.2447
+  type: 'test'
+  ...
+# Subtest: G1/G2 author and typed turn journal round-trip through normalized SQLite
+ok 10 - G1/G2 author and typed turn journal round-trip through normalized SQLite
+  ---
+  duration_ms: 17.0744
+  type: 'test'
+  ...
+# Subtest: G18 SQLite keeps memory rows immutable while projecting superseded status and rollback
+ok 11 - G18 SQLite keeps memory rows immutable while projecting superseded status and rollback
+  ---
+  duration_ms: 10.642
+  type: 'test'
+  ...
+# Subtest: legacy immutable memory rows accept additive projection metadata without rewriting originals
+ok 12 - legacy immutable memory rows accept additive projection metadata without rewriting originals
+  ---
+  duration_ms: 5.8918
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1183.5979
+
+# tests/memory-policy.test.js
+TAP version 13
+# Subtest: G3 hard filters run before ranking, default legacy visibility is denied
+ok 1 - G3 hard filters run before ranking, default legacy visibility is denied
+  ---
+  duration_ms: 3.7196
+  type: 'test'
+  ...
+# Subtest: G3/G23 shared state removes private feelings, secrets, provenance and off-scene entities
+ok 2 - G3/G23 shared state removes private feelings, secrets, provenance and off-scene entities
+  ---
+  duration_ms: 1.3626
+  type: 'test'
+  ...
+# Subtest: G18 supersession is derived from accepted records and reverses with branch rollback
+ok 3 - G18 supersession is derived from accepted records and reverses with branch rollback
+  ---
+  duration_ms: 0.7109
+  type: 'test'
+  ...
+# Subtest: G20 campaign snapshot inherits state and open threads; selective and session-only isolate
+ok 4 - G20 campaign snapshot inherits state and open threads; selective and session-only isolate
+  ---
+  duration_ms: 9.2666
+  type: 'test'
+  ...
+# Subtest: inherited facts are superseded by this session and restored when its turn is removed
+ok 5 - inherited facts are superseded by this session and restored when its turn is removed
+  ---
+  duration_ms: 3.3516
+  type: 'test'
+  ...
+# Subtest: vector search sends only eligible texts, validates batches, ranks and applies budget
+ok 6 - vector search sends only eligible texts, validates batches, ranks and applies budget
+  ---
+  duration_ms: 9.1593
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 129.9641
+
+# tests/simulation.test.js
+TAP version 13
+# Subtest: G21 significant event creates personal appraisal, hidden emotions and durable aftermath
+ok 1 - G21 significant event creates personal appraisal, hidden emotions and durable aftermath
+  ---
+  duration_ms: 5.1556
+  type: 'test'
+  ...
+# Subtest: G4/G26 a transient emotion never changes durable relationships
+ok 2 - G4/G26 a transient emotion never changes durable relationships
+  ---
+  duration_ms: 3.0498
+  type: 'test'
+  ...
+# Subtest: G5 repeated humiliation changes directed trust, bounded once per causal evidence
+ok 3 - G5 repeated humiliation changes directed trust, bounded once per causal evidence
+  ---
+  duration_ms: 1.5101
+  type: 'test'
+  ...
+# Subtest: G22/G14 overnight advances decay, weather, conditional events and daily schedules
+ok 4 - G22/G14 overnight advances decay, weather, conditional events and daily schedules
+  ---
+  duration_ms: 1.8194
+  type: 'test'
+  ...
+# Subtest: G23 another recipient and ambiguous group receive observations without hidden anxiety
+ok 5 - G23 another recipient and ambiguous group receive observations without hidden anxiety
+  ---
+  duration_ms: 0.6567
+  type: 'test'
+  ...
+# Subtest: G24 per-character appraisals and mixed emotions remain distinct
+ok 6 - G24 per-character appraisals and mixed emotions remain distinct
+  ---
+  duration_ms: 0.5575
+  type: 'test'
+  ...
+# Subtest: G25 agency, unknown causes and character breaks reject atomically
+ok 7 - G25 agency, unknown causes and character breaks reject atomically
+  ---
+  duration_ms: 1.0015
+  type: 'test'
+  ...
+# Subtest: G27 off/light/full and background detail are selective and packet remains bounded
+ok 8 - G27 off/light/full and background detail are selective and packet remains bounded
+  ---
+  duration_ms: 1.6218
+  type: 'test'
+  ...
+# Subtest: minimal world leaves scheduled events pending; standard excludes NPC schedules
+ok 9 - minimal world leaves scheduled events pending; standard excludes NPC schedules
+  ---
+  duration_ms: 0.8058
+  type: 'test'
+  ...
+# Subtest: bounded time rejects backwards and excessive jumps including direct date patches
+ok 10 - bounded time rejects backwards and excessive jumps including direct date patches
+  ---
+  duration_ms: 1.3062
+  type: 'test'
+  ...
+# Subtest: turn journal survives reload, rollback and reactivation without repeated emotional processing
+ok 11 - turn journal survives reload, rollback and reactivation without repeated emotional processing
+  ---
+  duration_ms: 11.7818
+  type: 'test'
+  ...
+# Subtest: runtime contract quotes current evidence and rejects legacy relationship bypass
+ok 12 - runtime contract quotes current evidence and rejects legacy relationship bypass
+  ---
+  duration_ms: 1.4611
+  type: 'test'
+  ...
+# Subtest: simulation settings clamp numerical bounds and reject unknown modes
+ok 13 - simulation settings clamp numerical bounds and reject unknown modes
+  ---
+  duration_ms: 1.4227
+  type: 'test'
+  ...
+# Subtest: full active reactions must be reconsidered on the time-jump turn
+ok 14 - full active reactions must be reconsidered on the time-jump turn
+  ---
+  duration_ms: 1.9447
+  type: 'test'
+  ...
+# Subtest: private inspection is opt-in while exported state and persistence stay complete
+ok 15 - private inspection is opt-in while exported state and persistence stay complete
+  ---
+  duration_ms: 1.3371
+  type: 'test'
+  ...
+# Subtest: invalid imported emotion cannot corrupt an existing saved simulation
+ok 16 - invalid imported emotion cannot corrupt an existing saved simulation
+  ---
+  duration_ms: 1.5534
+  type: 'test'
+  ...
+# Subtest: G23 group generation selects only the current member, never the player impersonation
+ok 17 - G23 group generation selects only the current member, never the player impersonation
+  ---
+  duration_ms: 1.0154
+  type: 'test'
+  ...
+# Subtest: scheduled event fires before appraisal on the same accepted time-jump turn
+ok 18 - scheduled event fires before appraisal on the same accepted time-jump turn
+  ---
+  duration_ms: 0.6841
+  type: 'test'
+  ...
+# Subtest: explicit author profile correction is journaled and replayed without changing the source
+ok 19 - explicit author profile correction is journaled and replayed without changing the source
+  ---
+  duration_ms: 3.0542
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 155.1146
+
+# tests/history-runtime.test.js
+TAP version 13
+# Subtest: G12 replay after load is idempotent and preserves provenance and memory
+ok 1 - G12 replay after load is idempotent and preserves provenance and memory
+  ---
+  duration_ms: 60.186
+  type: 'test'
+  ...
+# Subtest: G6 swipe removes old memory and restores compatible cached variant without Director
+ok 2 - G6 swipe removes old memory and restores compatible cached variant without Director
+  ---
+  duration_ms: 12.4441
+  type: 'test'
+  ...
+# Subtest: G7 earlier edit recomputes dependent turns and equals replay from scratch
+ok 3 - G7 earlier edit recomputes dependent turns and equals replay from scratch
+  ---
+  duration_ms: 23.184
+  type: 'test'
+  ...
+# Subtest: G8 delete rolls back state and memory including after reload
+ok 4 - G8 delete rolls back state and memory including after reload
+  ---
+  duration_ms: 5.3166
+  type: 'test'
+  ...
+# Subtest: G10 outage recovers missing POST and clears persistent pending flag
+ok 5 - G10 outage recovers missing POST and clears persistent pending flag
+  ---
+  duration_ms: 9.1061
+  type: 'test'
+  ...
+# Subtest: C5 audit failure keeps immutable proposal and pending; successful retry supersedes it
+ok 6 - C5 audit failure keeps immutable proposal and pending; successful retry supersedes it
+  ---
+  duration_ms: 8.2228
+  type: 'test'
+  ...
+# Subtest: low confidence remains proposed and never creates memories or advances time
+ok 7 - low confidence remains proposed and never creates memories or advances time
+  ---
+  duration_ms: 3.718
+  type: 'test'
+  ...
+# Subtest: G11 late POST cannot write another chat or its metadata
+ok 8 - G11 late POST cannot write another chat or its metadata
+  ---
+  duration_ms: 2.9276
+  type: 'test'
+  ...
+# Subtest: late strict rewrite cannot edit a chat after switching
+ok 9 - late strict rewrite cannot edit a chat after switching
+  ---
+  duration_ms: 3.6935
+  type: 'test'
+  ...
+# Subtest: state and memories commit atomically on storage failure
+ok 10 - state and memories commit atomically on storage failure
+  ---
+  duration_ms: 2.3151
+  type: 'test'
+  ...
+# Subtest: A1 subsequent rebuild never reuses checkpoint invalidated by an earlier edit
+ok 11 - A1 subsequent rebuild never reuses checkpoint invalidated by an earlier edit
+  ---
+  duration_ms: 1.5134
+  type: 'test'
+  ...
+# Subtest: G13 legacy bundle is backed up before migration; startup card checkpoint survives
+ok 12 - G13 legacy bundle is backed up before migration; startup card checkpoint survives
+  ---
+  duration_ms: 1.2745
+  type: 'test'
+  ...
+# Subtest: G9 explicit player action can establish new canon instead of preserving a lost item
+ok 13 - G9 explicit player action can establish new canon instead of preserving a lost item
+  ---
+  duration_ms: 4.9514
+  type: 'test'
+  ...
+# Subtest: rerender of an older accepted message never discards later accepted state
+ok 14 - rerender of an older accepted message never discards later accepted state
+  ---
+  duration_ms: 10.8812
+  type: 'test'
+  ...
+# Subtest: imported baseline and memories survive reconciliation
+ok 15 - imported baseline and memories survive reconciliation
+  ---
+  duration_ms: 4.6841
+  type: 'test'
+  ...
+# Subtest: schema rejection preserves evidence but never applies state or memory
+ok 16 - schema rejection preserves evidence but never applies state or memory
+  ---
+  duration_ms: 0.602
+  type: 'test'
+  ...
+# Subtest: history bundle matches its published schema including separate decisions
+ok 17 - history bundle matches its published schema including separate decisions
+  ---
+  duration_ms: 9.3871
+  type: 'test'
+  ...
+# Subtest: typed POST operations and explicit author command integrate with branch replay
+ok 18 - typed POST operations and explicit author command integrate with branch replay
+  ---
+  duration_ms: 34.3468
+  type: 'test'
+  ...
+# Subtest: G3 PRE and packet exclude unavailable knowledge in off mode
+ok 19 - G3 PRE and packet exclude unavailable knowledge in off mode
+  ---
+  duration_ms: 8.6605
+  type: 'test'
+  ...
+# Subtest: G3 PRE and packet exclude unavailable knowledge in soft mode
+ok 20 - G3 PRE and packet exclude unavailable knowledge in soft mode
+  ---
+  duration_ms: 8.6169
+  type: 'test'
+  ...
+# Subtest: G3 PRE and packet exclude unavailable knowledge in strict mode
+ok 21 - G3 PRE and packet exclude unavailable knowledge in strict mode
+  ---
+  duration_ms: 8.14
+  type: 'test'
+  ...
+# Subtest: semantic provider outage degrades to filtered Unicode memory and still builds PRE
+ok 22 - semantic provider outage degrades to filtered Unicode memory and still builds PRE
+  ---
+  duration_ms: 7.8417
+  type: 'test'
+  ...
+# Subtest: inherited scene membership cannot grant a new session participant private knowledge
+ok 23 - inherited scene membership cannot grant a new session participant private knowledge
+  ---
+  duration_ms: 8.3016
+  type: 'test'
+  ...
+# Subtest: G25 causal agency violations remain proposals in off runtime
+ok 24 - G25 causal agency violations remain proposals in off runtime
+  ---
+  duration_ms: 4.5724
+  type: 'test'
+  ...
+# Subtest: G25 causal agency violations remain proposals in soft runtime
+ok 25 - G25 causal agency violations remain proposals in soft runtime
+  ---
+  duration_ms: 3.2658
+  type: 'test'
+  ...
+# Subtest: G25 causal agency violations remain proposals in strict runtime
+ok 26 - G25 causal agency violations remain proposals in strict runtime
+  ---
+  duration_ms: 5.6
+  type: 'test'
+  ...
+# Subtest: G21 runtime POST persists reaction and next PRE gets private guidance without raw private history
+ok 27 - G21 runtime POST persists reaction and next PRE gets private guidance without raw private history
+  ---
+  duration_ms: 11.5114
+  type: 'test'
+  ...
+# Subtest: private PRE packet is discarded when group recipient changes during Director await
+ok 28 - private PRE packet is discarded when group recipient changes during Director await
+  ---
+  duration_ms: 2.214
+  type: 'test'
+  ...
+# Subtest: G15 scripted injected Director output cannot change settings or administer the registry
+ok 29 - G15 scripted injected Director output cannot change settings or administer the registry
+  ---
+  duration_ms: 3.4152
+  type: 'test'
+  ...
+# Subtest: branch indexes use last decisions and last eligible record without reviving superseded versions
+ok 30 - branch indexes use last decisions and last eligible record without reviving superseded versions
+  ---
+  duration_ms: 1.2859
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 30
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 401.2136
+
+# server-plugin/tests/storage.test.js
+TAP version 13
+# Subtest: G13 file migration backs up v1 before writing v2 and preserves legacy envelope
+ok 1 - G13 file migration backs up v1 before writing v2 and preserves legacy envelope
+  ---
+  duration_ms: 418.3064
+  type: 'test'
+  ...
+# Subtest: immutable row conflict rolls back whole bundle and remains chat scoped
+ok 2 - immutable row conflict rolls back whole bundle and remains chat scoped
+  ---
+  duration_ms: 7.2712
+  type: 'test'
+  ...
+# Subtest: legacy snapshot route keeps at most twenty snapshots per chat
+ok 3 - legacy snapshot route keeps at most twenty snapshots per chat
+  ---
+  duration_ms: 10.3428
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 534.4655
+
+# server-plugin/tests/simulation.test.mjs
+TAP version 13
+# Subtest: G14/G22 SQLite close/reopen preserves schedules and pending inner life and rollback
+ok 1 - G14/G22 SQLite close/reopen preserves schedules and pending inner life and rollback
+  ---
+  duration_ms: 129.0779
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 229.9398
+
+# tests/visual.test.js
+TAP version 13
+# Subtest: visual descriptor derives physical scene and excludes hidden feelings without mutating canon
+ok 1 - visual descriptor derives physical scene and excludes hidden feelings without mutating canon
+  ---
+  duration_ms: 9.9763
+  type: 'test'
+  ...
+# Subtest: visual profiles validate references and remain bound to entity IDs
+ok 2 - visual profiles validate references and remain bound to entity IDs
+  ---
+  duration_ms: 1.9669
+  type: 'test'
+  ...
+# Subtest: G16 illustration request and completion attach scene metadata without a state delta
+ok 3 - G16 illustration request and completion attach scene metadata without a state delta
+  ---
+  duration_ms: 5.8277
+  type: 'test'
+  ...
+# Subtest: G17 visual submission error never writes to the canonical manager
+ok 4 - G17 visual submission error never writes to the canonical manager
+  ---
+  duration_ms: 1.787
+  type: 'test'
+  ...
+# Subtest: deleted/swiped origin or changed scene makes a visual result stale
+ok 5 - deleted/swiped origin or changed scene makes a visual result stale
+  ---
+  duration_ms: 2.293
+  type: 'test'
+  ...
+# Subtest: automatic generation deduplicates an unchanged scene; manual requests still work
+ok 6 - automatic generation deduplicates an unchanged scene; manual requests still work
+  ---
+  duration_ms: 5.2586
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 122.8991
+
+# server-plugin/tests/visual.test.js
+TAP version 13
+# Subtest: workflow bindings preserve fixed graph and independently toggle configured stages
+ok 1 - workflow bindings preserve fixed graph and independently toggle configured stages
+  ---
+  duration_ms: 1.5923
+  type: 'test'
+  ...
+# Subtest: queue progresses to done, is idempotent and isolates users
+ok 2 - queue progresses to done, is idempotent and isolates users
+  ---
+  duration_ms: 29.758
+  type: 'test'
+  ...
+# Subtest: G17 lost submission acknowledgement ends without unsafe duplicate POST
+ok 3 - G17 lost submission acknowledgement ends without unsafe duplicate POST
+  ---
+  duration_ms: 6.3271
+  type: 'test'
+  ...
+# Subtest: safe history GET retries are bounded and never resubmit the workflow
+ok 4 - safe history GET retries are bounded and never resubmit the workflow
+  ---
+  duration_ms: 5.5224
+  type: 'test'
+  ...
+# Subtest: restart resumes known prompt IDs and terminates ambiguous submissions
+ok 5 - restart resumes known prompt IDs and terminates ambiguous submissions
+  ---
+  duration_ms: 8.0504
+  type: 'test'
+  ...
+# Subtest: invalid workflow and empty outputs are terminal failures, not fake success
+ok 6 - invalid workflow and empty outputs are terminal failures, not fake success
+  ---
+  duration_ms: 5.6887
+  type: 'test'
+  ...
+# Subtest: Comfy transport pins configured host and image reads require the owning scope
+ok 7 - Comfy transport pins configured host and image reads require the owning scope
+  ---
+  duration_ms: 7.8199
+  type: 'test'
+  ...
+# Subtest: real SQLite close and reopen resumes a job without submitting it twice
+ok 8 - real SQLite close and reopen resumes a job without submitting it twice
+  ---
+  duration_ms: 82.8455
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 252.5347

@@ -14,6 +14,18 @@ function downloadJson(name, value) {
     return `Saved ${name}.`;
 }
 
+export function subsystemStatus(runtime) {
+    return {
+        scope:'current chat; visual status is last observed, no network probe',
+        state:runtime.stateReady?'ready':'unavailable',
+        storage:runtime.storage?.degraded?'degraded':'configured',
+        pendingReconciliation:runtime.stateManager?.pending?.length ?? null,
+        memory:runtime.diagnostics.retrievalMode || 'not_run',
+        simulation:runtime.settings.innerLifeMode || 'not_configured',
+        visual:runtime.settings.visualEnabled ? (runtime.visualDirector?.lastJobStatus || 'not_observed') : 'disabled',
+    };
+}
+
 export function createUiActions(runtime) {
     return {
         describeVisualScene: async () => runtime.describeVisualScene(),
@@ -40,7 +52,7 @@ export function createUiActions(runtime) {
         },
         exportDiagnostics: async () => downloadJson('narrative-engine-diagnostics.json', {
             exportedAt: new Date().toISOString(),
-            diagnostics: {...runtime.diagnostics.snapshot(), lastPacket: inspectionPacket(runtime)},
+            diagnostics: {...runtime.diagnostics.snapshot(), subsystems:subsystemStatus(runtime), lastPacket: inspectionPacket(runtime)},
             stateRevision: runtime.stateManager.state.revision,
             settings: { ...runtime.settings, endpoint: runtime.settings.endpoint ? '[configured]' : '' },
         }),
@@ -64,7 +76,7 @@ export function runtimeUiStatus(runtime) {
         tokenEstimates: diagnostics.lastPacket ? Math.ceil(diagnostics.lastPacket.length / 4) : 0,
         storageStatus: !runtime.stateReady ? 'Unavailable: no verified snapshot' : runtime.storage?.degraded ? 'Degraded: local copy in use' : 'Connected',
         retrievalMode: diagnostics.retrievalMode, memoryScope: runtime.stateManager?.scope,
-        usage: diagnostics.usage, latencyStats: diagnostics.latencyStats,
+        usage: diagnostics.usage, latencyStats: diagnostics.latencyStats, quality: diagnostics.quality, subsystems: subsystemStatus(runtime),
         errors: diagnostics.errors, pendingReconciliation: Boolean(runtime.context?.chatMetadata?.narrative_engine?.pendingReconciliation),
     };
 }

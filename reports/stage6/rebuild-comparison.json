@@ -1,0 +1,132 @@
+{
+  "workload": "same scripts/measure-stage6.mjs; three fresh-manager full replays; both measured with node --cpu-prof",
+  "beforeP50Ms": 9486.1996,
+  "afterP50Ms": 4271.2228,
+  "speedup": 2.220956396842609,
+  "profiles": {
+    "before": [
+      {
+        "function": "structuredClone",
+        "module": "js_transferable",
+        "samples": 8180
+      },
+      {
+        "function": "mergeImmutable",
+        "module": "object.js",
+        "samples": 2966
+      },
+      {
+        "function": "structuredClone",
+        "module": "",
+        "samples": 1059
+      },
+      {
+        "function": "validateWorld",
+        "module": "entities.js",
+        "samples": 842
+      },
+      {
+        "function": "lexicalTokens",
+        "module": "semantic.js",
+        "samples": 832
+      },
+      {
+        "function": "assertSafeData",
+        "module": "entities.js",
+        "samples": 681
+      },
+      {
+        "function": "findAccepted",
+        "module": "manager.js",
+        "samples": 452
+      },
+      {
+        "function": "clone",
+        "module": "object.js",
+        "samples": 339
+      },
+      {
+        "function": "exact",
+        "module": "entities.js",
+        "samples": 262
+      },
+      {
+        "function": "validate",
+        "module": "manager.js",
+        "samples": 244
+      },
+      {
+        "function": "(garbage collector)",
+        "module": "",
+        "samples": 180
+      },
+      {
+        "function": "own",
+        "module": "entities.js",
+        "samples": 178
+      }
+    ],
+    "after": [
+      {
+        "function": "mergeImmutable",
+        "module": "object.js",
+        "samples": 2861
+      },
+      {
+        "function": "structuredClone",
+        "module": "js_transferable",
+        "samples": 2308
+      },
+      {
+        "function": "lexicalTokens",
+        "module": "semantic.js",
+        "samples": 883
+      },
+      {
+        "function": "assertSafeData",
+        "module": "entities.js",
+        "samples": 645
+      },
+      {
+        "function": "validateWorld",
+        "module": "entities.js",
+        "samples": 419
+      },
+      {
+        "function": "exact",
+        "module": "entities.js",
+        "samples": 238
+      },
+      {
+        "function": "clone",
+        "module": "object.js",
+        "samples": 204
+      },
+      {
+        "function": "validate",
+        "module": "manager.js",
+        "samples": 127
+      },
+      {
+        "function": "(garbage collector)",
+        "module": "",
+        "samples": 123
+      },
+      {
+        "function": "applyStateDelta",
+        "module": "model.js",
+        "samples": 119
+      },
+      {
+        "function": "own",
+        "module": "entities.js",
+        "samples": 96
+      },
+      {
+        "function": "id",
+        "module": "entities.js",
+        "samples": 77
+      }
+    ]
+  }
+}

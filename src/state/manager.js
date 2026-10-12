@@ -134,17 +134,23 @@ export class StateManager {
         await this.commit({ pending: [...this.pending.filter(p => p.idempotencyKey !== ref.idempotencyKey), { ...clone(ref), reason }] });
     }
     async selectBranch(refs) {
+        // Local indexes preserve last-decision/last-compatible-record semantics.
+        const statuses = new Map(this.decisions.map(d => [d.deltaId, d.status]));
+        const accepted = new Map();
+        for (const record of this.records) if (['confirmed', 'reverted'].includes(statuses.get(record.deltaId))) accepted.set(record.idempotencyKey, record);
         const chosen = [];
         // Stop at the first gap: later turns depend on the missing predecessor.
         for (const ref of refs) {
-            const record = this.findAccepted(ref.idempotencyKey);
+            const record = accepted.get(ref.idempotencyKey);
             if (!record) break;
             chosen.push(record);
         }
         const turns = [...chosen];
-        const authorRecords = this.records.filter(r => r.source === 'author' && ['confirmed', 'reverted'].includes(latestStatus(this.decisions, r.deltaId)));
+        const authorRecords = this.records.filter(r => r.source === 'author' && ['confirmed', 'reverted'].includes(statuses.get(r.deltaId)));
         const ordered = [];
-        const appendAuthors = key => ordered.push(...authorRecords.filter(r => r.anchorKey === key));
+        const authorsByAnchor = new Map();
+        for (const record of authorRecords) { const list = authorsByAnchor.get(record.anchorKey) || []; list.push(record); authorsByAnchor.set(record.anchorKey,list); }
+        const appendAuthors = key => ordered.push(...(authorsByAnchor.get(key) || []));
         appendAuthors(null);
         for (const turn of turns) { ordered.push(turn); appendAuthors(turn.idempotencyKey); }
         chosen.splice(0, chosen.length, ...ordered);
@@ -162,7 +168,7 @@ export class StateManager {
         const selected = new Set(chosen.map(r => r.deltaId));
         const decisions = [...this.decisions];
         for (const r of this.records) {
-            const status = latestStatus(decisions, r.deltaId);
+            const status = statuses.get(r.deltaId);
             if (status === 'confirmed' && !selected.has(r.deltaId)) decisions.push(decision(r.deltaId, 'reverted', 'branch changed'));
             if (status === 'reverted' && selected.has(r.deltaId)) decisions.push(decision(r.deltaId, 'confirmed', 'compatible branch restored'));
         }
