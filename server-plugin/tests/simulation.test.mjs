@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { StateManager } from '../../src/state/manager.js';
+import { createInitialState } from '../../src/state/model.js';
+import { SIMULATION_DEFAULTS } from '../../src/state/simulation.js';
+const require=createRequire(new URL('../package.json',import.meta.url));
+const {Database}=require('./lib/database.js');
+
+test('G14/G22 SQLite close/reopen preserves schedules and pending inner life and rollback',async t=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'ne-simulation-'));
+ let db=new Database({storageRoot:root,databasePath:path.join(root,'world.sqlite3')});
+ t.after(async()=>{db.close();await rm(root,{recursive:true,force:true});});
+ const storage={async getItem(key){return db.readField('user-chat',key)?.value ?? null;},async setItem(key,value){const old=db.readField('user-chat',key);db.writeField('user-chat',key,value,old?.revision || 0);}};
+ let manager=new StateManager({storage,chatFingerprint:'ne-world'});
+ const initial=createInitialState({characters:{Anna:{},Bob:{}},timeline:{date:'2026-03-02',time:'21:00',elapsedMinutes:0,scheduled:[]}});
+ await manager.importData({chatFingerprint:'ne-world',state:initial,memories:[]});
+ const policy={...SIMULATION_DEFAULTS,innerLifeMode:'full',simulationLevel:'living',activeCharacters:['Anna']};
+ const first={idempotencyKey:'first',messageIndex:1},morning={idempotencyKey:'morning',messageIndex:3};
+ const event={id:'e1',kind:'loss',summary:'The keepsake broke',participants:['Anna'],visibleTo:['Anna'],significance:0.9,status:'occurred'};
+ const appraisal={eventId:'e1',meaning:'A personal loss',significance:0.9,confidence:0.9};
+ const reaction={characterId:'Anna',basis:'character_appraisal',consistency:{valid:true,reason:'Keepsakes matter to her'},appraisals:[appraisal],emotions:[{type:'grief',intensity:0.8,causeEventId:'e1',decay:'exponential',halfLifeMinutes:120}]};
+ assert.equal(await manager.recordTurn({simulation:{policy,events:[event,{...event,id:'rain',status:'scheduled',dueGameTime:'next_morning',effects:{weather:'rain'}}],characters:[reaction],schedules:[{id:'work',characterId:'Bob',at:'08:00',activity:'open shop',visibleTo:['*']}]}},first),'confirmed');
+ const evening=manager.snapshot();db.close();db=new Database({storageRoot:root,databasePath:path.join(root,'world.sqlite3')});
+ manager=new StateManager({storage,chatFingerprint:'ne-world'});await manager.load();assert.deepEqual(manager.snapshot(),evening);
+ reaction.processing=[{eventId:'e1',interpretation:'After sleeping, accepts the loss'}];
+ assert.equal(await manager.recordTurn({time_advance_minutes:660,simulation:{policy,characters:[reaction]}},morning),'confirmed');
+ assert.equal(manager.state.scene.weather,'rain');assert.equal(manager.state.npc_plans.Bob.activity,'open shop');assert.equal(manager.state.simulation.characters.Anna.pendingProcessing[0].status,'processed');
+ const expected=manager.snapshot();await manager.selectBranch([first]);assert.deepEqual(manager.snapshot(),evening);await manager.selectBranch([first,morning]);assert.deepEqual(manager.snapshot(),expected);
+});

@@ -71,3 +71,14 @@ Lexical fallback is Unicode word/character overlap, with no Russian-only diction
 Session transfer is an explicit snapshot before the first accepted turn. Knowledge filtering remains mandatory in off/soft/strict audit modes. Shared PRE uses the intersection of scene and actual recipient permissions. Raw historical text and unannotated private state are not reintroduced into that shared packet.
 
 Public slash commands use full English action names, with no aliases. See [implementation and commands](stage3_implementation.md).
+
+
+## Stage 4 - deterministic simulation inside accepted turns
+
+Simulation uses an additive version-1 state field and the existing immutable turn journal, rather than an independent background worker. Every accepted turn saves its effective policy. Decay, due events and processing therefore roll back and replay with the branch; SQLite keeps the same transactional bundle contract. No wall-clock timers or extra model calls were added. Relationship evidence is consumed per directed dimension; per-turn change caps apply across dimensions for the pair.
+
+The Director interprets events and personality; code validates cause references, visibility, thresholds, agency declarations, time bounds and processing obligations. Group private guidance fails closed when the generation recipient is ambiguous. For normal group generation, the pinned upstream source confirms public context.characterId identifies the member selected before Generate. That ID is membership-checked and rechecked after PRE; private imports are unnecessary. See the source links in the stage-4 report.
+
+## Stage 5: visual work stays outside canonical history (2026-10-12)
+
+Scene descriptors are derived from accepted state. Visual profiles and SQLite jobs are separate from world deltas; completion only adds presentation metadata. A content hash plus accepted origin reference makes branch changes invalidate a result. Server-owned fixed recipes constrain ComfyUI graphs and independently toggle optional stages. Persist before POST; never automatically repeat an ambiguously accepted submission. Only history reads retry. See [stage 5](stage5_implementation.md) for configuration, recovery and unverified live-quality boundaries.

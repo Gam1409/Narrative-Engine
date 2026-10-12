@@ -3,6 +3,7 @@
 const { loadConfig } = require('./lib/config');
 const { Database } = require('./lib/database');
 const { DirectorProvider } = require('./lib/provider');
+const { VisualQueue } = require('./lib/visual');
 const { buildRoutes } = require('./lib/routes');
 
 let runtime = null;
@@ -12,13 +13,16 @@ async function init(router) {
     const config = loadConfig();
     const db = new Database(config);
     const provider = new DirectorProvider(config);
-    runtime = { db, provider };
-    buildRoutes(router, { config, db, provider });
+    const visuals = new VisualQueue(config, db);
+    runtime = { db, provider, visuals };
+    visuals.start();
+    buildRoutes(router, { config, db, provider, visuals });
     console.info(`[narrative-engine] Server plugin ready; storage=${config.storageRoot}; provider=${config.providerUrl ? 'configured' : 'not configured'}`);
 }
 
 async function exit() {
     if (!runtime) return;
+    runtime.visuals.close();
     runtime.provider.close();
     runtime.db.close();
     runtime = null;

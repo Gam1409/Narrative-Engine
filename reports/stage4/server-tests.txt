@@ -1,0 +1,48 @@
+
+> sillytavern-narrative-engine@0.7.0 test:server
+> node server-plugin/run-tests.cjs server-plugin/tests
+
+✔ G19 browser storage contract: isolation, reload, copy semantics, remove and clear (12.3892ms)
+✔ G19 server storage contract: isolation, reload, copy semantics, remove and clear (80.0404ms)
+✔ C4 normalized SQLite writes append journal rows without snapshot multiplication (1073.0683ms)
+✔ last verified snapshot survives outage and offline changes recover after reload (4.818ms)
+✔ uncached offline key fails closed instead of resetting the world (5.9707ms)
+✔ lost POST acknowledgement is recovered without duplicating writes (4.6497ms)
+✔ offline conflict preserves both versions and never overwrites remote state (4.3055ms)
+✔ CAS conflict rolls back in-memory transaction instead of entering fallback (6.0774ms)
+✔ lost acknowledgement of normalized history reconciles by value, not JSON key order (6.4922ms)
+✔ G1/G2 author and typed turn journal round-trip through normalized SQLite (19.7785ms)
+✔ G18 SQLite keeps memory rows immutable while projecting superseded status and rollback (11.9303ms)
+✔ legacy immutable memory rows accept additive projection metadata without rewriting originals (6.5875ms)
+✔ configuration uses persistent DATA_ROOT storage and clamps limits (5.1094ms)
+✔ environment storage override is resolved and allowlist parsed (1.9698ms)
+✔ Windows SQLite vec/FTS5 ranks, caches hashes, and isolates model and user (77.8084ms)
+✔ embedding provider uses configured URL/model and validates count, dimensions and finite numbers (3.058ms)
+✔ completion URL is fixed beneath configured endpoint (2.1629ms)
+✔ provider uses fixed model, retries, and never accepts request URL (265.7873ms)
+✔ unconfigured provider reports offline without throwing (1.7539ms)
+✔ chat storage identifiers are isolated by authenticated user (6.1218ms)
+✔ all required server routes are registered (2.8723ms)
+✔ Director messages preserve conversation and merge client system context after fixed policy (1.5612ms)
+✔ Director messages keep input and payload compatibility (0.5846ms)
+✔ Director messages reject unsafe shapes, roles, and oversized content (7.1584ms)
+✔ SQLite migration declares all required server-assisted tables (1.5731ms)
+✔ SSRF validation permits loopback for local Director (15.8987ms)
+✔ SSRF validation rejects protected networks unless explicitly allowlisted (8.7083ms)
+✔ SSRF validation rejects credentials and unsupported protocols (0.6782ms)
+✔ address and identifier validation covers unsafe inputs (0.7286ms)
+✔ state deltas merge without mutation and null deletes values (3.1516ms)
+✔ memory consolidation and keyword retrieval remain chat-scoped (2.0602ms)
+✔ sprite selection shortlists by code and preserves KEEP semantics (25.9202ms)
+✔ G14/G22 SQLite close/reopen preserves schedules and pending inner life and rollback (199.7024ms)
+✔ G13 file migration backs up v1 before writing v2 and preserves legacy envelope (477.5285ms)
+✔ immutable row conflict rolls back whole bundle and remains chat scoped (5.0767ms)
+✔ legacy snapshot route keeps at most twenty snapshots per chat (11.3821ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1467.1907

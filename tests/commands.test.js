@@ -7,7 +7,7 @@ test('English action commands register without aliases and invoke their handlers
     const context = { SlashCommand: { fromProps: props => props }, SlashCommandParser: { addCommandObject: command => commands.push(command) } };
     const runtime = { authorEdit: async value => { edits.push(value); return { accepted: true }; } };
     registerCommands(context, runtime, {});
-    assert.equal(commands.length, 14);
+    assert.equal(commands.length, 18);
     assert.ok(commands.every(c => c.name.startsWith('narrative-') && !/[\u0400-\u04ff]/.test(c.helpString)));
     const edit = commands.find(c => c.name === 'narrative-edit-world');
     assert.ok(commands.every(c => !Object.hasOwn(c, 'aliases')));

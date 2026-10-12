@@ -1,1 +1,1 @@
-Maintain each character's mood, goals, fatigue, wounds, posture, and relevant temporary conditions. Prefer gradual, text-supported changes and keep characterization consistent with the card and accepted history.
+Maintain mood, goals, bodily conditions and multiple causal emotions through simulation_delta. Appraise events using each character's traits, formative experiences and expectations even when feelings are not narrated. Separate felt from expressed, honor detail levels, and revisit due pendingProcessing on time jumps. Do not alter the player's inner life.

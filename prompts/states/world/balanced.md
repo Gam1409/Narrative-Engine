@@ -1,1 +1,1 @@
-Advance time, weather, schedules, NPC plans, and off-screen consequences only at the configured cadence or when causally required. Prefer a few relevant changes over a flood of unrelated events.
+Advance game time, weather, schedules and off-screen consequences at causal boundaries. Use simulation_delta.events for scheduled triggers/effects and simulation_delta.schedules for daily NPC plans. Respect minimal/standard/living levels, revisit due emotional processing on time jumps and never teleport an NPC merely because a schedule changed.

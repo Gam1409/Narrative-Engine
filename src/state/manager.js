@@ -1,3 +1,4 @@
+import { validateSimulationState } from './simulation.js';
 import { validateWorld } from './entities.js';
 import { applyStateDelta, createInitialState } from './model.js';
 import { createCheckpoint, nearestCheckpoint } from './checkpoints.js';
@@ -18,6 +19,7 @@ export class StateManager {
     snapshot() { return clone(this.state); }
     validate(candidate) {
         validateWorld(candidate);
+        validateSimulationState(candidate);
         const result = this.validator?.(candidate);
         if (result === false || result?.valid === false) throw new Error('State transaction failed validation');
     }
@@ -108,12 +110,12 @@ export class StateManager {
         await this.commit({ state, deltas, checkpoints, records, decisions, pending, memories: projectMemoryStatuses([...(this.checkpoints.find(p => p.messageIndex === -1)?.memories || []), ...activeMemories(deltas)]) });
         return status;
     }
-    async authorEdit(ops, reason) {
+    async authorEdit(ops, reason, simulation) {
         if (typeof reason !== 'string' || !reason.trim()) throw new Error('Author correction requires a reason');
         const tail = this.deltas.findLast(r => r.source !== 'author' && r.messageIndex >= 0);
         const record = { deltaId: crypto.randomUUID(), idempotencyKey: `author:${crypto.randomUUID()}`,
             source: 'author', messageIndex: tail?.messageIndex ?? -1, anchorKey: tail?.idempotencyKey ?? null,
-            delta: { ops: clone(ops) }, confidence: 1, at: new Date().toISOString(),
+            delta: { ops: clone(ops), ...(simulation ? { simulation: clone(simulation) } : {}) }, confidence: 1, at: new Date().toISOString(),
             audit: { valid: true, reason }, memories: [], messageRef: {}, supersedes: [] };
         Object.assign(record, { chatFingerprint: this.chatFingerprint, sessionId: this.scope.sessionId, campaignId: this.scope.campaignId, recordedAt: record.at,
             gameTime: this.state.timeline?.date && this.state.timeline?.time ? `${this.state.timeline.date}T${this.state.timeline.time}` : null,

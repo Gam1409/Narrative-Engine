@@ -1,0 +1,19 @@
+{
+  "version": "0.8.0",
+  "clientTests": 121,
+  "serverTests": 44,
+  "syntaxFiles": 94,
+  "parsedSchemas": 12,
+  "versions": {
+    "package.json": "0.8.0",
+    "manifest.json": "0.8.0",
+    "server-plugin/package.json": "0.8.0",
+    "server-plugin/package-lock.json": "0.8.0"
+  },
+  "diffCheck": "passed",
+  "packageDryRun": "passed",
+  "liveValidation": false,
+  "visualUiRenderingVerified": false,
+  "comfyTransport": "scripted responses; real SQLite close/reopen",
+  "documentationLinks": "passed"
+}

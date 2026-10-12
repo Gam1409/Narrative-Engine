@@ -1,3 +1,4 @@
+import { visualCharacter } from '../visual/scene.js';
 import { filterSpriteCandidates, validateSpriteManifest } from './manifest.js';
 
 function timeoutSignal(ms) {
@@ -51,13 +52,16 @@ export class SpriteManifestStore {
     }
 
     candidatesFor(character, state = {}, limit = 20) {
+        const entity=Object.values(state.entities || {}).find(e=>e.type==='character' && [e.id,e.name,...(e.aliases || [])].includes(character));
+        const visual=visualCharacter(state,entity?.id || character);
+        const profile=this.visualProfiles?.[visual.id];
         const characterState = state.characters?.[character] || {};
         const mood = Array.isArray(characterState.mood) ? characterState.mood[0] : characterState.mood;
-        return filterSpriteCandidates(this.entries.get(character) || [], {
+        return filterSpriteCandidates((this.entries.get(character) || []).filter(e=>(!profile?.emotionSet?.length || !e.expression || profile.emotionSet.includes(e.expression)) && (!profile?.poseSet?.length || !e.pose || profile.poseSet.includes(e.pose))), {
             character,
-            costume: characterState.costume || characterState.clothing?.costume || '',
-            expression: mood || characterState.expression || '',
-            pose: characterState.pose || characterState.posture || '',
+            costume: (typeof visual.outfit==='string' ? visual.outfit : '') || '',
+            expression: visual.emotion || (typeof mood==='string' ? mood : '') || '',
+            pose: visual.pose || '',
         }, limit);
     }
 }

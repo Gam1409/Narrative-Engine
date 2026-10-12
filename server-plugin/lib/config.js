@@ -12,6 +12,10 @@ function loadConfig(env = process.env, dataRoot = globalThis.DATA_ROOT) {
         ? path.resolve(env.NARRATIVE_ENGINE_STORAGE_DIR)
         : path.join(dataRoot || process.cwd(), '_storage', 'narrative-engine');
     return Object.freeze({
+        comfyUrl: env.NARRATIVE_ENGINE_COMFY_URL || '',
+        comfyKey: env.NARRATIVE_ENGINE_COMFY_API_KEY || '',
+        comfyWorkflows: env.NARRATIVE_ENGINE_COMFY_WORKFLOWS || '',
+        visualJobTimeoutMs: integer(env.NARRATIVE_ENGINE_VISUAL_JOB_TIMEOUT_MS,600000,10000,3600000),
         embeddingUrl: env.NARRATIVE_ENGINE_EMBEDDING_URL || '',
         embeddingModel: env.NARRATIVE_ENGINE_EMBEDDING_MODEL || '',
         embeddingKey: env.NARRATIVE_ENGINE_EMBEDDING_API_KEY || '',

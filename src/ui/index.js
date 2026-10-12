@@ -1,3 +1,4 @@
+import { SIMULATION_DEFAULTS } from '../state/simulation.js';
 const DEFAULT_PROMPT_VARIANTS = Object.freeze({
     continuity: 'balanced',
     characterState: 'balanced',
@@ -10,6 +11,10 @@ const DEFAULT_PROMPT_VARIANTS = Object.freeze({
 });
 
 const DEFAULT_UI_SETTINGS = Object.freeze({
+    ...SIMULATION_DEFAULTS,
+    showInternalState: false,
+    visualEnabled: false, visualAutomatic: false, visualKeepSeed: true, visualPartial: false,
+    visualWorkflow: 'scene_full', visualPartialWorkflow: '', visualStages: {controlnet:false,ipadapter:false,mask:false},
     enabled: false,
     provider: 'server',
     endpoint: '',
@@ -46,6 +51,7 @@ const PROFILE_DESCRIPTIONS = Object.freeze({
 });
 
 const NUMBER_SETTINGS = new Set([
+    'significanceThreshold','relationshipConfidence','relationshipMaxChange','repetitionThreshold','minTurnMinutes','maxTurnMinutes',
     'memoryWeights.semantic', 'memoryWeights.importance', 'memoryWeights.entities', 'memoryWeights.location', 'memoryWeights.recency', 'memoryWeights.old',
     'minimumConfidence', 'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'checkpointInterval',
 ]);
@@ -164,6 +170,13 @@ async function showViewer(root, context, title, data) {
     content.className = 'ne-popup-content';
     content.textContent = viewerText(data);
     wrapper.append(heading, content);
+    const gallery=document.createElement('div');gallery.className='ne-visual-gallery';
+    for(const entry of data?.visualGallery || []) {
+        if(typeof entry.url!=='string' || !/^\/api\/plugins\/narrative-engine\/visual\/image\/[A-Za-z0-9%_.-]+\/[A-Za-z0-9-]+\/\d$/.test(entry.url))continue;
+        const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');
+        image.src=entry.url;image.alt=String(entry.caption || 'Generated scene');image.loading='lazy';caption.textContent=image.alt;figure.append(image,caption);gallery.append(figure);
+    }
+    wrapper.append(gallery);
 
     if (typeof context?.Popup === 'function' && context?.POPUP_TYPE?.TEXT !== undefined) {
         const popup = new context.Popup(wrapper, context.POPUP_TYPE.TEXT, '', {
@@ -179,6 +192,8 @@ async function showViewer(root, context, title, data) {
     if (!dialog) return;
     dialog.querySelector('[data-viewer-title]').textContent = title;
     dialog.querySelector('[data-viewer-content]').textContent = viewerText(data);
+    dialog.querySelector('.ne-visual-gallery')?.remove();
+    dialog.querySelector('form').append(gallery);
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
 }

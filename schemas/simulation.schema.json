@@ -1,0 +1,530 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Causal simulation changes",
+  "type": "object",
+  "properties": {
+    "events": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "participants": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "visibleTo": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "significance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "status": {
+            "enum": [
+              "occurred",
+              "scheduled"
+            ]
+          },
+          "dueGameTime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "condition": {
+            "type": "object",
+            "properties": {
+              "eventId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "eventId"
+            ],
+            "additionalProperties": false
+          },
+          "effects": {
+            "type": "object",
+            "properties": {
+              "weather": {
+                "type": "string",
+                "minLength": 1
+              },
+              "lighting": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "enum": [
+                  "rp",
+                  "user_action",
+                  "player_assertion"
+                ]
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "source",
+              "quote"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "participants",
+          "visibleTo",
+          "significance",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "characters": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "characterId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "age": {
+                "type": "number",
+                "minimum": 0
+              },
+              "traits": {
+                "type": "object"
+              },
+              "formativeExperiences": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object"
+                }
+              },
+              "behaviorTendencies": {
+                "type": "object",
+                "properties": {
+                  "likelyTo": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "unlikelyTo": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "motivation": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "mood": {
+            "type": "object",
+            "properties": {
+              "valence": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "arousal": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "valence",
+              "arousal"
+            ],
+            "additionalProperties": false
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "tension": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "fatigue": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "pain": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "appraisals": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "eventId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "meaning": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "significance": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "ambivalence": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "eventId",
+                "meaning",
+                "significance",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "emotions": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "intensity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "causeEventId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "toward": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "decay": {
+                  "enum": [
+                    "per_scene",
+                    "exponential",
+                    "none"
+                  ]
+                },
+                "halfLifeMinutes": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 525600
+                }
+              },
+              "required": [
+                "type",
+                "intensity",
+                "causeEventId",
+                "decay"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "expectations": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "about": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "strength": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "about",
+                "text",
+                "strength"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "expressedVsFelt": {
+            "type": "object",
+            "properties": {
+              "expressed": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "felt": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "maskingLevel": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "expressed",
+              "felt",
+              "maskingLevel"
+            ],
+            "additionalProperties": false
+          },
+          "processing": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "eventId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "interpretation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "eventId",
+                "interpretation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "basis": {
+            "enum": [
+              "character_appraisal",
+              "explicit_expression",
+              "player_assertion"
+            ]
+          },
+          "consistency": {
+            "type": "object",
+            "properties": {
+              "valid": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "valid",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "characterId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dimension": {
+            "type": "string",
+            "minLength": 1
+          },
+          "delta": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "eventIds": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interpretation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "dimension",
+          "delta",
+          "eventIds",
+          "interpretation",
+          "confidence"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "schedules": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "characterId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "at": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "activity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visibleTo": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "id",
+          "characterId",
+          "at",
+          "activity",
+          "visibleTo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "resolveEvents": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

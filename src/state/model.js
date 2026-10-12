@@ -1,3 +1,4 @@
+import { applySimulation } from './simulation.js';
 import { applyOperations, assertSafeData, createRegistry } from './entities.js';
 import { clone, mergeImmutable } from '../utils/object.js';
 import { advanceTimeline } from './timeline.js';
@@ -35,9 +36,11 @@ export function applyStateDelta(state, delta = {}, options = {}) {
     const { source = 'director', confidence = 1, at = new Date().toISOString() } = options;
     assertSafeData(delta);
     if (Object.hasOwn(delta, 'entities') || Object.hasOwn(delta, 'registry')) throw new Error('Use typed operations for entities and registry');
-    const allowed = ['ops', 'scene', 'characters', 'objects', 'locations', 'timeline', 'relationships', 'knowledge', 'threads', 'npc_plans', 'world_events', 'time_advance_minutes', 'timeAdvanceMinutes'];
+    const allowed = ['simulation', 'ops', 'scene', 'characters', 'objects', 'locations', 'timeline', 'relationships', 'knowledge', 'threads', 'npc_plans', 'world_events', 'time_advance_minutes', 'timeAdvanceMinutes'];
     for (const key of Object.keys(delta)) if (!allowed.includes(key)) throw new Error(`Unsupported state delta field: ${key}`);
     const stateDelta = clone(delta);
+    const simulation = stateDelta.simulation;
+    delete stateDelta.simulation;
     const operations = stateDelta.ops;
     delete stateDelta.ops;
     const minutes = Number(stateDelta.time_advance_minutes ?? stateDelta.timeAdvanceMinutes ?? 0);
@@ -53,6 +56,7 @@ export function applyStateDelta(state, delta = {}, options = {}) {
             if (registered) throw new Error(`Use typed operations for registered entity: ${key}`);
         }
     }
+    if (simulation !== undefined) next = applySimulation(state, next, simulation, options);
     next.schemaVersion = CURRENT_SCHEMA_VERSION;
     next.revision = Number(state.revision || 0) + 1;
     next.provenance = mergeImmutable(state.provenance || {}, buildProvenance(stateDelta, { source, confidence, at }));

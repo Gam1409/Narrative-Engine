@@ -67,7 +67,7 @@ export async function loadStatePromptBundle(settings, role) {
     }))).filter(Boolean);
     const phaseRule = role === 'pre'
         ? 'PRE PHASE: use these rules to select constraints and guidance for the RP model; do not invent future changes.'
-        : 'POST PHASE: use these rules to audit the completed response and emit only text-supported deltas.';
+        : 'POST PHASE: use these rules to audit the completed response and emit text-supported objective deltas and separately grounded personal appraisals under simulation_policy.';
     return sections.length ? `STATE-SPECIFIC RULES\n${phaseRule}\n\n${sections.join('\n\n')}` : '';
 }
 

@@ -1,1 +1,1 @@
-Simulate only events that are already due or are direct consequences of current actions. Keep the background quiet when nothing relevant should change.
+Advance only established clocks and directly caused events. Use simulation_delta.events for time/condition triggers and preserve visibility. Respect minimal/standard/living policy and bounded time advances; do not invent unrelated background activity.

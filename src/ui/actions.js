@@ -1,3 +1,4 @@
+import { inspectionState, inspectionPacket } from '../state/simulationContext.js';
 import { clearPromptCache } from '../director/promptLoader.js';
 import { clearStatePromptCache } from '../director/statePrompts.js';
 
@@ -15,16 +16,19 @@ function downloadJson(name, value) {
 
 export function createUiActions(runtime) {
     return {
+        describeVisualScene: async () => runtime.describeVisualScene(),
+        requestIllustration: async () => runtime.requestIllustration(),
+        viewVisualJobs: async () => {const jobs=await runtime.visualJobs();return {jobs,visualGallery:jobs.filter(j=>j.status==='done'&&!j.stale).flatMap(j=>j.images.map(url=>({url,caption:`${j.workflow} - seed ${j.seed}`})))};},
         testConnection: async () => {
             const result = await runtime.healthCheck();
             if (!result.ok) throw new Error(result.error || 'Director is offline.');
             return `Director connected (${result.latencyMs ?? 0} ms).`;
         },
-        viewState: async () => runtime.stateManager.snapshot(),
+        viewState: async () => inspectionState(runtime),
         viewTimeline: async () => runtime.stateManager.snapshot().timeline,
         viewPlotThreads: async () => runtime.stateManager.snapshot().threads,
         viewMemories: async () => runtime.memoryStore.items,
-        viewLastDirectorPacket: async () => runtime.diagnostics.lastPacket || 'No Director packet has been created yet.',
+        viewLastDirectorPacket: async () => inspectionPacket(runtime) || 'No Director packet has been created yet.',
         rebuildState: async () => { await runtime.markDirtyAndRebuild(0); return 'State rebuilt.'; },
         exportState: async () => downloadJson('narrative-engine-state.json', await runtime.exportState()),
         importState: async (value) => { await runtime.importState(value); return 'State imported.'; },
@@ -36,7 +40,7 @@ export function createUiActions(runtime) {
         },
         exportDiagnostics: async () => downloadJson('narrative-engine-diagnostics.json', {
             exportedAt: new Date().toISOString(),
-            diagnostics: runtime.diagnostics.snapshot(),
+            diagnostics: {...runtime.diagnostics.snapshot(), lastPacket: inspectionPacket(runtime)},
             stateRevision: runtime.stateManager.state.revision,
             settings: { ...runtime.settings, endpoint: runtime.settings.endpoint ? '[configured]' : '' },
         }),

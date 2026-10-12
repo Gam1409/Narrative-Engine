@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "sceneId",
+    "messageRef",
+    "location",
+    "characters",
+    "keyObjects",
+    "changesSincePrevious",
+    "preserve"
+  ],
+  "properties": {
+    "sceneId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "messageRef": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "location": {
+      "type": "object"
+    },
+    "characters": {
+      "type": "array"
+    },
+    "keyObjects": {
+      "type": "array"
+    },
+    "changesSincePrevious": {
+      "type": "array"
+    },
+    "preserve": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": false
+}

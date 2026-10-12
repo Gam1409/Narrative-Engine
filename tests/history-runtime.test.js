@@ -281,3 +281,42 @@ test('inherited scene membership cannot grant a new session participant private 
     assert.ok(payload.knowledge_viewers.includes('Anna')); assert.ok(!JSON.stringify(payload).includes('OLD_PRIVATE_SECRET'));
     assert.ok(payload.state.scene.present.includes('PreviousActor'));
 });
+
+
+for (const mode of ['off','soft','strict']) test(`G25 causal agency violations remain proposals in ${mode} runtime`,async t=>{
+ const {runtime,context}=await fixture(t);runtime.settings.auditMode=mode;runtime.settings.innerLifeMode='full';
+ const working=runtime.director;
+ runtime.director={run:async(role,...args)=>{
+  if(role==='reconcile') return {replacement:null};
+  const post=await working.run(role,...args);
+  post.simulation_delta={characters:[{characterId:'Anna',basis:'player_assertion'}]};return post;
+ }};
+ await runtime.processPost(1);
+ assert.equal(runtime.stateManager.state.revision,0);assert.equal(runtime.stateManager.records[0].audit.valid,false);
+ assert.equal(latestStatus(runtime.stateManager.decisions,runtime.stateManager.records[0].deltaId),'proposed');
+ assert.match(runtime.diagnostics.lastAudit.errors.at(-1).message,/agency/);
+ assert.equal(context.chatMetadata.narrative_engine.pendingReconciliation,true);
+});
+
+test('G21 runtime POST persists reaction and next PRE gets private guidance without raw private history',async t=>{
+ const {runtime,context}=await fixture(t);runtime.settings.innerLifeMode='full';
+ await runtime.stateManager.importData({chatFingerprint:runtime.stateManager.chatFingerprint,state:{...runtime.stateManager.snapshot(),characters:{Anna:{},Bob:{}},scene:{present:['Anna','Bob']},timeline:{date:'2026-03-02',time:'21:00',elapsedMinutes:0,scheduled:[]}},memories:[]});
+ const working=runtime.director;let preInput;
+ runtime.director={run:async(role,payload,...args)=>{
+  if(role==='pre') {preInput=payload;return {scene:{},character_states:{},must_preserve:[]};}
+  const post=await working.run(role,payload,...args);
+  post.simulation_delta={events:[{id:'gift',kind:'gift',summary:'Anna takes an heirloom',participants:['Anna'],visibleTo:['Anna'],significance:0.9,status:'occurred',evidence:{source:'rp',quote:'takes sword'}}],characters:[{characterId:'Anna',basis:'character_appraisal',consistency:{valid:true,reason:'The heirloom matters to her'},appraisals:[{eventId:'gift',meaning:'A private family responsibility',significance:0.9,confidence:0.9}],emotions:[{type:'anxiety',intensity:0.7,causeEventId:'gift',decay:'per_scene'}]}]};return post;
+ }};
+ await runtime.processPost(1);assert.equal(runtime.stateManager.state.simulation.characters.Anna.pendingProcessing.length,1);
+ const packet=await runtime.preparePacket([], 4096, 'normal');
+ assert.equal(preInput.inner_life.own.characterId,'Anna');assert.deepEqual(preInput.recent_messages,[]);assert.match(packet,/anxiety/);
+});
+
+
+test('private PRE packet is discarded when group recipient changes during Director await',async t=>{
+ const {runtime,context}=await fixture(t);
+ context.characters.push({name:'Bob',avatar:'Bob.png'});context.groupId='g';context.groups=[{id:'g',members:['Anna.png','Bob.png'],chat_id:'group-chat'}];
+ context.chat=[];context.characterId=0;await runtime.loadChat(context);
+ runtime.director={run:async()=>{context.characterId=1;return {scene:{location:'hall'},character_states:{}};}};
+ assert.equal(await runtime.preparePacket([],4096,'normal'),null);assert.equal(runtime.diagnostics.lastPacket,'');
+});

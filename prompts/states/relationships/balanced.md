@@ -1,1 +1,1 @@
-Track trust, tension, affection, fear, obligation, and power changes between all relevant pairs. Changes must be gradual, directional, and accompanied by a short reason grounded in the current exchange.
+Track trust, affection, resentment and other dimensions separately for each directed pair. Use simulation_delta.relationships with significant or repeated causal events, interpretation and confidence. Honor simulation_policy thresholds and per-turn limits; do not reuse consumed evidence or convert emotion intensity into lasting trust.

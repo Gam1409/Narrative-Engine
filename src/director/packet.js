@@ -12,6 +12,8 @@ function estimateTokens(text) {
 
 export function buildDirectorPacket(pre, tokenBudget = 1500) {
     const blocks = [
+        section('PRIVATE CHARACTER GUIDANCE', pre.inner_life),
+        section('OBSERVABLE BEHAVIOR', pre.observations),
         section('SCENE', pre.scene),
         section('PRESENT', pre.present || pre.character_states),
         section('PHYSICAL CONTINUITY', pre.must_preserve),
@@ -27,7 +29,7 @@ export function buildDirectorPacket(pre, tokenBudget = 1500) {
     let packet = header;
     for (const block of blocks) {
         const candidate = `${packet}${packet === header ? '' : '\n\n'}${block}`;
-        if (estimateTokens(candidate + footer) > tokenBudget) break;
+        if (estimateTokens(candidate + footer) > tokenBudget) continue;
         packet = candidate;
     }
     return packet + footer;

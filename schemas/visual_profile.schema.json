@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "entityId"
+  ],
+  "properties": {
+    "entityId": {
+      "type": "string"
+    },
+    "appearance": {
+      "type": "string"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "lora": {
+      "type": "array"
+    },
+    "outfits": {
+      "type": "object"
+    },
+    "emotionSet": {
+      "type": "array"
+    },
+    "poseSet": {
+      "type": "array"
+    },
+    "genParams": {
+      "type": "object"
+    },
+    "compatibleWorkflows": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": false
+}

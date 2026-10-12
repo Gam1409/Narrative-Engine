@@ -146,6 +146,30 @@
         }
       },
       "additionalProperties": false
+    },
+    "simulation": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "characters": {
+          "type": "object"
+        },
+        "events": {
+          "type": "object"
+        },
+        "schedules": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "version",
+        "characters",
+        "events",
+        "schedules"
+      ],
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

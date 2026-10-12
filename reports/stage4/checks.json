@@ -1,0 +1,17 @@
+{
+  "version": "0.7.0",
+  "clientTests": 115,
+  "serverTests": 36,
+  "syntaxFiles": 89,
+  "parsedSchemas": 10,
+  "versions": {
+    "package.json": "0.7.0",
+    "manifest.json": "0.7.0",
+    "server-plugin\\package.json": "0.7.0",
+    "server-plugin\\package-lock.json": "0.7.0"
+  },
+  "diffCheck": "passed",
+  "packageDryRun": "passed",
+  "liveValidation": false,
+  "groupRecipient": "pinned ST 1.19.0 source and scripted tests"
+}

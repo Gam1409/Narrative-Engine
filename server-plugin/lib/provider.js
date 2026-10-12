@@ -12,7 +12,7 @@ function completionUrl(base) {
     return url;
 }
 
-function requestJson(url, options, body, allowedAddresses, timeoutMs, controllers) {
+function requestJson(url, options, body, allowedAddresses, timeoutMs, controllers, binary = false) {
     return new Promise((resolve, reject) => {
         const controller = new AbortController();
         controllers.add(controller);
@@ -33,12 +33,13 @@ function requestJson(url, options, body, allowedAddresses, timeoutMs, controller
             let total = 0;
             response.on('data', (chunk) => {
                 total += chunk.length;
-                if (total > 2 * 1024 * 1024) controller.abort(new Error('Director response is too large'));
+                if (total > (binary ? 16 : 2) * 1024 * 1024) controller.abort(new Error('Director response is too large'));
                 else chunks.push(chunk);
             });
             response.on('end', () => {
                 const text = Buffer.concat(chunks).toString('utf8');
                 if (response.statusCode < 200 || response.statusCode >= 300) return reject(Object.assign(new Error(`Director returned HTTP ${response.statusCode}`), { retryable: response.statusCode >= 500 }));
+                if (binary) return resolve({bytes:Buffer.concat(chunks),contentType:response.headers['content-type'] || ''});
                 try { resolve(JSON.parse(text)); } catch { reject(new Error('Director returned invalid JSON')); }
             });
         });

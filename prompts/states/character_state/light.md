@@ -1,1 +1,1 @@
-Track only clearly expressed mood, immediate goal, and major condition changes. Avoid reacting to every sentence or assigning private thoughts that were not stated.
+Track major conditions and simple emotions with a causal event and intensity. Respect simulation_policy.innerLifeMode: when enabled, personally appraise significant events even if feelings are unstated. Never assign the player an internal state; preserve traits and audit unsupported reactions.

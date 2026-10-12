@@ -24,6 +24,7 @@ test('all required server routes are registered', () => {
     });
     const routes = registered.filter(([method]) => method !== 'USE').map(([method, path]) => `${method} ${path}`);
     assert.deepEqual(routes, [
+        'POST /visual/jobs','GET /visual/jobs/:chatId','GET /visual/jobs/:chatId/:id','GET /visual/image/:chatId/:id/:index',
         'GET /health',
         'POST /director/pre', 'POST /director/post', 'POST /director/reconcile',
         'POST /memory/embeddings', 'POST /memory/search', 'POST /memory/consolidate',

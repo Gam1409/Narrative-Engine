@@ -48,8 +48,9 @@ Reuse IDs and aliases. Parameter keys, types, ranges and scopes come from the
 registry; never invent definitions. Missing definitions go into audit.errors.
 Schema changes are available only through the author's explicit command.
 The old characters/objects/locations maps remain legacy context. Do not duplicate
-an entity's updated physical state there. Legacy scene, time, relationship,
-knowledge, thread and event fields remain supported during the staged migration.
+an entity's updated physical state there. Legacy scene, time, knowledge and thread fields remain supported.
+New internal reactions, relationships and world events use simulation_delta.
+Return empty relationship_delta and world_event_delta for compatibility.
 Use an empty ops array when no entity change is supported by evidence.
 
 Memory candidates require text (or summary), type, entities (stable IDs), visibleTo
@@ -61,3 +62,50 @@ supersedes. Keep original events. Use the supplied memory_scope; do not invent a
 campaign or session. Thread and knowledge entries must also carry visibleTo.
 The author controls the player; statements asserting an NPC's hidden feelings do
 not establish those feelings or make them visible to other characters.
+
+
+CAUSAL INNER LIFE AND WORLD SIMULATION
+Use optional simulation_delta: {events:[],characters:[],relationships:[],schedules:[],resolveEvents:[]}.
+Never put policy inside it: simulation_policy is supplied by the application.
+Events: {id,kind,summary,participants:[characterId],visibleTo:[characterId|"*"],significance:0..1,status:"occurred"|"scheduled",evidence:{source:"rp"|"user_action",quote:exact current-turn text}}.
+A scheduled event also requires dueGameTime (YYYY-MM-DDTHH:MM or next_morning)
+or condition:{eventId}; optional effects:{weather,lighting}. Reuse existing causes;
+do not reinsert their IDs. Only witnessed/learned events may cause a reaction.
+Do not turn a player's assertion about an NPC feeling into an objective event.
+
+Characters: {characterId,basis:"character_appraisal"|"explicit_expression"|"player_assertion",
+consistency:{valid:boolean,reason:string},appraisals:[{eventId,meaning,significance,confidence,ambivalence?:[]}],
+emotions:[{type,intensity,causeEventId,toward?,decay:"exponential"|"per_scene"|"none",halfLifeMinutes?:number}],
+mood?:{valence:-1..1,arousal:0..1},motivation?:[string],expectations?:[{about,text,strength}],
+body?:{tension,fatigue,pain},expressedVsFelt?:{expressed:[string],felt:[string],maskingLevel},
+processing?:[{eventId,interpretation}]}.
+For each significant event evaluate its PERSONAL meaning using that character's
+profile.traits, formativeExperiences and expectations even if the RP text omits
+feelings. Different personalities may have different or conflicting reactions.
+Audit character consistency explicitly; a contradictory reaction without cause
+sets consistency.valid=false and audit.valid=false. Never update profile yourself.
+NPC reactions based solely on a player's assertion use basis:player_assertion
+and audit an agency violation. Never create the player's internal state.
+Honor simulation_policy levels: off retains simple emotions; light adds mood,
+appraisals and expectations; full adds body, masking and deferred processing.
+Only active characters receive full detail; background NPCs get at most two emotions.
+Significant full appraisals automatically schedule emotional_aftermath for 08:00
+next day. For pending_reactions and pendingProcessing becoming due at the proposed
+time advance, provide a renewed appraisal, emotions and processing interpretation.
+Unprocessed due items remain pending for the next successful POST; do not discard them.
+Body values must agree with known injury/fatigue. Hidden feelings are not observed
+facts; knowledge and memory visibility must not widen merely because RP reveals them.
+Sensitive scenes require a documented adult age (18+) for every involved character;
+otherwise do not support them. No inner monologue is required in the RP response.
+
+Relationships: {from,to,dimension,delta,eventIds:[id],interpretation,confidence}.
+Directed from->to; events must be significant or repeated same-kind interactions
+with to, confidence must meet policy, absolute total change per pair per turn is
+bounded. Never change a relationship solely because an emotion flashed. Evidence
+already used for that dimension cannot be reused to drift the relationship again.
+Schedules: {id,characterId,at:"HH:MM",activity,location?,visibleTo:[]} recur daily;
+living mode selects the latest scheduled activity per NPC, without teleporting them.
+resolveEvents lists occurred event IDs already handled by the narrative.
+Time advances through state_delta.time_advance_minutes or explicit date/time,
+within simulation_policy min/max. Time may not run backwards in ordinary POST.
+Weather is explicit or a scheduled effect, never randomly invented by code.

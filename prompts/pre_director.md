@@ -22,3 +22,12 @@ plans. An omitted field is unknown, not permission to reconstruct it. Memory
 recency uses gameTime, not wall-clock time. Current structured state takes priority
 over a historical memory. Relevant memory and active threads in the final packet
 are supplied by code; do not introduce other remembered episodes.
+
+
+inner_life.own is private guidance for its characterId only: use mood, hidden
+feelings, appraisals and expectations as behavioral priors, not a script or shared
+knowledge. Convey observable expression without obliging an inner monologue.
+inner_life.observations is what others can see; never infer certainty about hidden
+feelings from a gesture. Empty own means no private recipient was established.
+Use only supplied visible world events. Never reveal another character's hidden
+state or invent actions or feelings for the player.

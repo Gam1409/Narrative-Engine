@@ -76,3 +76,16 @@ export function recentChat(context, limit) {
         speaker: resolveMessageSpeaker(message, context),
     }));
 }
+
+
+/** ST sets characterId before each group member's Generate call (release 1.19.0). */
+export function resolveGenerationRecipient(context = getContext(), type = 'normal') {
+    if (type === 'impersonate' || context.characterId === undefined || context.characterId === null) return null;
+    const character=context.characters?.[context.characterId];
+    if (!character) return null;
+    if (context.groupId) {
+        const group=context.groups?.find(g=>String(g.id)===String(context.groupId));
+        if (!group?.members?.includes(character.avatar)) return null;
+    }
+    return toParticipant(character);
+}

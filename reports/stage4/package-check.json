@@ -1,0 +1,861 @@
+[
+  {
+    "id": "sillytavern-narrative-engine@0.7.0",
+    "name": "sillytavern-narrative-engine",
+    "version": "0.7.0",
+    "size": 2389989,
+    "unpackedSize": 3024949,
+    "shasum": "8ab9ee788e1e9dac1edb86be3aecedfd194561ec",
+    "integrity": "sha512-9TEYElp7tRJ51BpFhpUpKdOfLia2Rk6PVj+wX67x0v9wffEB888gc/TrHq0CtV0j5uwED94ew5Nkg7elSCC4jw==",
+    "filename": "sillytavern-narrative-engine-0.7.0.tgz",
+    "files": [
+      {
+        "path": "LICENSE",
+        "size": 1064,
+        "mode": 420
+      },
+      {
+        "path": "README_RU.md",
+        "size": 531,
+        "mode": 420
+      },
+      {
+        "path": "README.md",
+        "size": 45455,
+        "mode": 420
+      },
+      {
+        "path": "assets/narrative-engine-hero.png",
+        "size": 2206464,
+        "mode": 420
+      },
+      {
+        "path": "global.d.ts",
+        "size": 823,
+        "mode": 420
+      },
+      {
+        "path": "index.js",
+        "size": 3477,
+        "mode": 420
+      },
+      {
+        "path": "manifest.json",
+        "size": 496,
+        "mode": 420
+      },
+      {
+        "path": "package.json",
+        "size": 591,
+        "mode": 420
+      },
+      {
+        "path": "prompts/audit.md",
+        "size": 326,
+        "mode": 420
+      },
+      {
+        "path": "prompts/memory_consolidation.md",
+        "size": 289,
+        "mode": 420
+      },
+      {
+        "path": "prompts/post_director.md",
+        "size": 7939,
+        "mode": 420
+      },
+      {
+        "path": "prompts/pre_director.md",
+        "size": 2007,
+        "mode": 420
+      },
+      {
+        "path": "prompts/sprite_selection.md",
+        "size": 159,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/character_state/balanced.md",
+        "size": 357,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/character_state/light.md",
+        "size": 296,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/character_state/strict.md",
+        "size": 398,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/continuity/balanced.md",
+        "size": 257,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/continuity/light.md",
+        "size": 247,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/continuity/strict.md",
+        "size": 280,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/knowledge/balanced.md",
+        "size": 209,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/knowledge/light.md",
+        "size": 156,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/knowledge/strict.md",
+        "size": 244,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/memory/balanced.md",
+        "size": 221,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/memory/light.md",
+        "size": 152,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/memory/strict.md",
+        "size": 245,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/plot/balanced.md",
+        "size": 206,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/plot/light.md",
+        "size": 179,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/plot/strict.md",
+        "size": 223,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/relationships/balanced.md",
+        "size": 338,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/relationships/light.md",
+        "size": 266,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/relationships/strict.md",
+        "size": 341,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/sprites/balanced.md",
+        "size": 215,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/sprites/light.md",
+        "size": 152,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/sprites/strict.md",
+        "size": 233,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/world/balanced.md",
+        "size": 348,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/world/light.md",
+        "size": 253,
+        "mode": 420
+      },
+      {
+        "path": "prompts/states/world/strict.md",
+        "size": 339,
+        "mode": 420
+      },
+      {
+        "path": "prompts/world_simulation.md",
+        "size": 249,
+        "mode": 420
+      },
+      {
+        "path": "reports/acceptance_matrix.md",
+        "size": 3713,
+        "mode": 420
+      },
+      {
+        "path": "reports/architecture_decisions.md",
+        "size": 5605,
+        "mode": 420
+      },
+      {
+        "path": "reports/connection_profiles.md",
+        "size": 1652,
+        "mode": 420
+      },
+      {
+        "path": "reports/rooms_reference_analysis.md",
+        "size": 1743,
+        "mode": 420
+      },
+      {
+        "path": "reports/st_upstream_preflight.md",
+        "size": 3687,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage0_audit.md",
+        "size": 25958,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage0/observations.json",
+        "size": 3236,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage0/probe.mjs",
+        "size": 10558,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage0/sources.json",
+        "size": 512,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage1_implementation.md",
+        "size": 15968,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage1/client-tests.txt",
+        "size": 5520,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage1/measure.mjs",
+        "size": 3953,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage1/metrics.json",
+        "size": 853,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage1/package-check.json",
+        "size": 14611,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage1/server-tests.txt",
+        "size": 1865,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage2_implementation.md",
+        "size": 12181,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage2/checks.json",
+        "size": 120,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage2/client-tests.txt",
+        "size": 6106,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage2/package-check.json",
+        "size": 15699,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage2/server-tests.txt",
+        "size": 2777,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3_implementation.md",
+        "size": 9573,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/checks.json",
+        "size": 363,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/client-tests.txt",
+        "size": 7874,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/measure.mjs",
+        "size": 3596,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/metrics.json",
+        "size": 8058,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/package-check.json",
+        "size": 17315,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/retrieval-fixtures.json",
+        "size": 2715,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage3/server-tests.txt",
+        "size": 3184,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage4_implementation.md",
+        "size": 8730,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage4/client-tests.txt",
+        "size": 10082,
+        "mode": 420
+      },
+      {
+        "path": "reports/stage4/server-tests.txt",
+        "size": 3292,
+        "mode": 420
+      },
+      {
+        "path": "reports/tested_upstream.json",
+        "size": 317,
+        "mode": 420
+      },
+      {
+        "path": "schemas/author_edit.schema.json",
+        "size": 26157,
+        "mode": 420
+      },
+      {
+        "path": "schemas/export.schema.json",
+        "size": 568,
+        "mode": 420
+      },
+      {
+        "path": "schemas/history.schema.json",
+        "size": 28809,
+        "mode": 420
+      },
+      {
+        "path": "schemas/memory.schema.json",
+        "size": 1660,
+        "mode": 420
+      },
+      {
+        "path": "schemas/operations.schema.json",
+        "size": 5807,
+        "mode": 420
+      },
+      {
+        "path": "schemas/post_director.schema.json",
+        "size": 25456,
+        "mode": 420
+      },
+      {
+        "path": "schemas/pre_director.schema.json",
+        "size": 1099,
+        "mode": 420
+      },
+      {
+        "path": "schemas/reconcile.schema.json",
+        "size": 227,
+        "mode": 420
+      },
+      {
+        "path": "schemas/simulation.schema.json",
+        "size": 13914,
+        "mode": 420
+      },
+      {
+        "path": "schemas/state.schema.json",
+        "size": 3593,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/index.js",
+        "size": 1100,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/config.js",
+        "size": 1684,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/database.js",
+        "size": 6725,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/provider.js",
+        "size": 6692,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/routes.js",
+        "size": 12646,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/security.js",
+        "size": 3968,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/services.js",
+        "size": 3571,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/lib/storage.js",
+        "size": 9325,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/package-lock.json",
+        "size": 20192,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/package.json",
+        "size": 476,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/run-tests.cjs",
+        "size": 589,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/adapter.test.mjs",
+        "size": 11290,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/config.test.js",
+        "size": 1244,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/embeddings.test.js",
+        "size": 3533,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/provider.test.js",
+        "size": 1684,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/routes.test.js",
+        "size": 3670,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/schema.test.js",
+        "size": 543,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/security.test.js",
+        "size": 1536,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/services.test.js",
+        "size": 2332,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/simulation.test.mjs",
+        "size": 3295,
+        "mode": 420
+      },
+      {
+        "path": "server-plugin/tests/storage.test.js",
+        "size": 3027,
+        "mode": 420
+      },
+      {
+        "path": "settings.html",
+        "size": 21283,
+        "mode": 420
+      },
+      {
+        "path": "src/commands/registerCommands.js",
+        "size": 3241,
+        "mode": 420
+      },
+      {
+        "path": "src/context/stContext.js",
+        "size": 4151,
+        "mode": 420
+      },
+      {
+        "path": "src/director/packet.js",
+        "size": 1703,
+        "mode": 420
+      },
+      {
+        "path": "src/director/promptLoader.js",
+        "size": 1325,
+        "mode": 420
+      },
+      {
+        "path": "src/director/schemaLoader.js",
+        "size": 1463,
+        "mode": 420
+      },
+      {
+        "path": "src/director/service.js",
+        "size": 2080,
+        "mode": 420
+      },
+      {
+        "path": "src/director/statePrompts.js",
+        "size": 3946,
+        "mode": 420
+      },
+      {
+        "path": "src/events/registerEvents.js",
+        "size": 2646,
+        "mode": 420
+      },
+      {
+        "path": "src/interceptors/narrativeEngineInterceptor.js",
+        "size": 862,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/index.js",
+        "size": 222,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/policy.js",
+        "size": 5395,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/retrieval.js",
+        "size": 2895,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/semantic.js",
+        "size": 1305,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/serverStorage.js",
+        "size": 6995,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/session.js",
+        "size": 2787,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/storage.js",
+        "size": 2479,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/store.js",
+        "size": 1014,
+        "mode": 420
+      },
+      {
+        "path": "src/memory/vectorSearch.js",
+        "size": 2511,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/connectionProfile.js",
+        "size": 4721,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/errors.js",
+        "size": 611,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/http.js",
+        "size": 2349,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/index.js",
+        "size": 795,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/ollama.js",
+        "size": 1843,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/openAiCompatible.js",
+        "size": 1691,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/serverProxy.js",
+        "size": 1439,
+        "mode": 420
+      },
+      {
+        "path": "src/providers/sillyTavern.js",
+        "size": 1442,
+        "mode": 420
+      },
+      {
+        "path": "src/runtime/diagnostics.js",
+        "size": 2797,
+        "mode": 420
+      },
+      {
+        "path": "src/runtime/runtime.js",
+        "size": 31270,
+        "mode": 420
+      },
+      {
+        "path": "src/settings.js",
+        "size": 5915,
+        "mode": 420
+      },
+      {
+        "path": "src/sprites/integration.js",
+        "size": 1636,
+        "mode": 420
+      },
+      {
+        "path": "src/sprites/manifest.js",
+        "size": 2029,
+        "mode": 420
+      },
+      {
+        "path": "src/sprites/store.js",
+        "size": 2906,
+        "mode": 420
+      },
+      {
+        "path": "src/state/checkpoints.js",
+        "size": 572,
+        "mode": 420
+      },
+      {
+        "path": "src/state/entities.js",
+        "size": 17152,
+        "mode": 420
+      },
+      {
+        "path": "src/state/history.js",
+        "size": 2667,
+        "mode": 420
+      },
+      {
+        "path": "src/state/index.js",
+        "size": 340,
+        "mode": 420
+      },
+      {
+        "path": "src/state/manager.js",
+        "size": 15783,
+        "mode": 420
+      },
+      {
+        "path": "src/state/migrations.js",
+        "size": 1302,
+        "mode": 420
+      },
+      {
+        "path": "src/state/model.js",
+        "size": 3971,
+        "mode": 420
+      },
+      {
+        "path": "src/state/simulation.js",
+        "size": 18963,
+        "mode": 420
+      },
+      {
+        "path": "src/state/simulationContext.js",
+        "size": 6934,
+        "mode": 420
+      },
+      {
+        "path": "src/state/timeline.js",
+        "size": 1037,
+        "mode": 420
+      },
+      {
+        "path": "src/ui/actions.js",
+        "size": 3923,
+        "mode": 420
+      },
+      {
+        "path": "src/ui/index.js",
+        "size": 20399,
+        "mode": 420
+      },
+      {
+        "path": "src/utils/cadence.js",
+        "size": 1147,
+        "mode": 420
+      },
+      {
+        "path": "src/utils/json.js",
+        "size": 2259,
+        "mode": 420
+      },
+      {
+        "path": "src/utils/object.js",
+        "size": 1778,
+        "mode": 420
+      },
+      {
+        "path": "src/utils/requestGate.js",
+        "size": 1864,
+        "mode": 420
+      },
+      {
+        "path": "src/utils/schema.js",
+        "size": 3514,
+        "mode": 420
+      },
+      {
+        "path": "src/utils/tokenBudget.js",
+        "size": 1922,
+        "mode": 420
+      },
+      {
+        "path": "style.css",
+        "size": 8229,
+        "mode": 420
+      },
+      {
+        "path": "tests/cadence-request.test.js",
+        "size": 1796,
+        "mode": 420
+      },
+      {
+        "path": "tests/commands.test.js",
+        "size": 1191,
+        "mode": 420
+      },
+      {
+        "path": "tests/diagnostics.test.js",
+        "size": 733,
+        "mode": 420
+      },
+      {
+        "path": "tests/entities.test.js",
+        "size": 12677,
+        "mode": 420
+      },
+      {
+        "path": "tests/history-runtime.test.js",
+        "size": 22161,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration.test.js",
+        "size": 4229,
+        "mode": 420
+      },
+      {
+        "path": "tests/memory-policy.test.js",
+        "size": 7439,
+        "mode": 420
+      },
+      {
+        "path": "tests/memory-retrieval.test.js",
+        "size": 1524,
+        "mode": 420
+      },
+      {
+        "path": "tests/multilingual-retrieval.test.js",
+        "size": 1155,
+        "mode": 420
+      },
+      {
+        "path": "tests/providers-sprites-context.test.js",
+        "size": 5672,
+        "mode": 420
+      },
+      {
+        "path": "tests/server-storage.test.js",
+        "size": 1977,
+        "mode": 420
+      },
+      {
+        "path": "tests/simulation.test.js",
+        "size": 15072,
+        "mode": 420
+      },
+      {
+        "path": "tests/state-core.test.js",
+        "size": 3408,
+        "mode": 420
+      },
+      {
+        "path": "tests/state-prompts.test.js",
+        "size": 3880,
+        "mode": 420
+      },
+      {
+        "path": "tests/state-schema.test.js",
+        "size": 1390,
+        "mode": 420
+      },
+      {
+        "path": "tests/ui.test.js",
+        "size": 3289,
+        "mode": 420
+      }
+    ],
+    "entryCount": 169,
+    "bundled": []
+  }
+]

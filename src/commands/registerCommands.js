@@ -1,3 +1,4 @@
+import { inspectionPacket } from '../state/simulationContext.js';
 function command(context, name, callback, helpString) {
     const { SlashCommandParser, SlashCommand } = context;
     if (!SlashCommandParser?.addCommandObject || !SlashCommand?.fromProps) return;
@@ -11,7 +12,7 @@ export function registerCommands(context, runtime, actions) {
         return `Narrative Engine ${enabled ? 'enabled' : 'disabled'}.`;
     }, 'Enable or disable Narrative Engine: /narrative-engine on|off');
     command(context, 'narrative-configure-session', async (_args, value) => value?.trim() ? JSON.stringify(await runtime.configureSession(JSON.parse(value))) : JSON.stringify(runtime.stateManager.scope), 'Show session ID and scope, or configure a new session: {mode,campaignId,fromSession?,entities?,types?,memoryIds?}.');
-    command(context, 'narrative-edit-world', async (_args, value) => JSON.stringify(await runtime.authorEdit(JSON.parse(value))), 'Explicit author correction: /narrative-edit-world {"reason":"...","ops":[...]}. Registry changes and canon edits are audited and backed up.');
+    command(context, 'narrative-edit-world', async (_args, value) => JSON.stringify(await runtime.authorEdit(JSON.parse(value))), 'Explicit author correction: /narrative-edit-world {"reason":"...","ops":[...]}. Optional simulation:{characters,events,relationships,schedules,policy} edits inner life and world events. Author edits are audited and backed up.');
     command(context, 'narrative-show-registry', () => JSON.stringify(runtime.stateManager.snapshot().registry, null, 2), 'Show entity types and parameter definitions.');
     command(context, 'narrative-reconnect-storage', async () => JSON.stringify(await runtime.recoverStorage()), 'Reconnect storage; preserve offline data and refuse conflicting remote changes.');
     command(context, 'narrative-show-state', async () => JSON.stringify(await actions.viewState(), null, 2), 'Return the current structured world state.');
@@ -20,7 +21,12 @@ export function registerCommands(context, runtime, actions) {
     command(context, 'narrative-show-memory', async () => JSON.stringify(await actions.viewMemories(), null, 2), 'Return retrieved episodic memories.');
     command(context, 'narrative-rebuild-state', async () => { await actions.rebuildState(); return 'Narrative Engine state rebuilt.'; }, 'Rebuild state from accepted message deltas.');
     command(context, 'narrative-show-audit', () => JSON.stringify(runtime.diagnostics.lastAudit || {}, null, 2), 'Return the last continuity audit.');
-    command(context, 'narrative-show-director-context', () => runtime.diagnostics.lastPacket || '', 'Return the last ephemeral Director packet.');
+    command(context, 'narrative-show-director-context', () => inspectionPacket(runtime), 'Return the last ephemeral Director packet.');
     command(context, 'narrative-refresh-sprites', async () => JSON.stringify(await actions.rerunSpriteSelection(), null, 2), 'Re-run sprite selection for the latest response.');
     command(context, 'narrative-export-world', async () => JSON.stringify(await runtime.exportState(), null, 2), 'Export Narrative Engine state as JSON.');
+    command(context, 'narrative-describe-scene', async () => JSON.stringify(await runtime.describeVisualScene(), null, 2), 'Show the visual scene derived from accepted world state.');
+    command(context, 'narrative-set-visual-profile', async (_args,value) => JSON.stringify(await runtime.setVisualProfile(JSON.parse(value))), 'Set a visual profile: {entityId,appearance,references,lora,outfits,emotionSet,poseSet,genParams,compatibleWorkflows}.');
+    command(context, 'narrative-generate-illustration', async () => JSON.stringify(await runtime.requestIllustration()), 'Queue an illustration without changing world state.');
+    command(context, 'narrative-show-visual-jobs', async () => JSON.stringify(await runtime.visualJobs(),null,2), 'Show recent visual jobs, including failures and scene references.');
+
 }

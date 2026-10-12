@@ -1,3 +1,4 @@
+import { SIMULATION_DEFAULTS } from './state/simulation.js';
 export const MODULE_NAME = 'narrative_engine';
 export const SCHEMA_VERSION = 1;
 
@@ -7,6 +8,10 @@ export const DEFAULT_PROMPT_VARIANTS = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
+    ...SIMULATION_DEFAULTS,
+    showInternalState: false,
+    visualEnabled: false, visualAutomatic: false, visualKeepSeed: true, visualPartial: false,
+    visualWorkflow: 'scene_full', visualPartialWorkflow: '', visualStages: {controlnet:false,ipadapter:false,mask:false},
     enabled: false,
     provider: 'server',
     endpoint: 'http://127.0.0.1:8080/v1',
@@ -63,6 +68,16 @@ export function normalizeSettings(candidate = {}) {
     merged.model = String(merged.model || '').trim();
     merged.connectionProfileId = String(merged.connectionProfileId || '').trim().slice(0, 200);
     merged.recentMessages = clampNumber(merged.recentMessages, 2, 50, 12);
+    merged.innerLifeMode = ['off','light','full'].includes(merged.innerLifeMode) ? merged.innerLifeMode : 'light';
+    merged.simulationLevel = ['minimal','standard','living'].includes(merged.simulationLevel) ? merged.simulationLevel : 'standard';
+    merged.showInternalState = merged.showInternalState === true;
+    for (const key of ['significanceThreshold','relationshipConfidence','relationshipMaxChange']) merged[key] = clampNumber(merged[key],0,1,SIMULATION_DEFAULTS[key]);
+    merged.repetitionThreshold = Math.round(clampNumber(merged.repetitionThreshold,2,20,3));
+    merged.minTurnMinutes = clampNumber(merged.minTurnMinutes,0,525600,0);
+    merged.maxTurnMinutes = clampNumber(merged.maxTurnMinutes,merged.minTurnMinutes,525600,1440);
+    for(const key of ['visualEnabled','visualAutomatic','visualKeepSeed','visualPartial']) merged[key]=merged[key]===true;
+    for(const key of ['visualWorkflow','visualPartialWorkflow']) merged[key]=String(merged[key] || '').trim().slice(0,100);
+    merged.visualStages=Object.fromEntries(['controlnet','ipadapter','mask'].map(k=>[k,merged.visualStages?.[k]===true]));
     merged.embeddingSearch = merged.embeddingSearch === true;
     merged.memoryWeights = Object.fromEntries(Object.entries(DEFAULT_SETTINGS.memoryWeights).map(([key, value]) => [key, clampNumber(merged.memoryWeights?.[key], 0, 2, value)]));
     merged.memoryTopK = clampNumber(merged.memoryTopK, 1, 20, 6);

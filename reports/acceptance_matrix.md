@@ -1,5 +1,7 @@
 # Acceptance matrix
 
+Stage 4: [0.7.0 local implementation and boundaries](stage4_implementation.md). Causal emotion/relationship rules, deferred processing, world time and SQLite restart/replay are covered. Private group guidance uses the verified public current-recipient ID and is omitted when unknown or impersonating the player. Live model quality remains unmeasured.
+
 Stage 3: [0.6.0 implementation and local verification](stage3_implementation.md). **91 client / 35 server tests pass**. G3/G18/G20, Unicode retrieval, real sqlite-vec/FTS5, cache isolation and English commands without aliases are covered. Real multilingual model quality remains unmeasured.
 
 Stage 2: [0.5.0 local verification](stage2_implementation.md), **71 client / 31 server tests**. G1/G2 typed ownership and movement, G13 migration backup, parameter registry and author branch replay pass. SQLite tests use the real driver; no live ST/model claim.
@@ -44,3 +46,7 @@ automated suite:
 These checks require user-specific models, chats, cards, World Info, and sprite
 assets and cannot be truthfully simulated as a live production proof in this
 repository alone.
+
+## Stage 5 local evidence (0.8.0)
+
+G16 illustration without canonical changes and G17 unavailable/uncertain ComfyUI are covered by scripted client/server tests. Queue recovery also closes and reopens an actual SQLite file. Descriptors, profiles, stage toggles, job scoping and stale branch results are locally verified. Live generation, optional-node workflows, partial-redraw quality and SillyTavern gallery rendering remain unverified by agreement. See [implementation](stage5_implementation.md) and [checks](stage5/checks.json).

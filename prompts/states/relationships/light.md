@@ -1,1 +1,1 @@
-Record only major, explicit relationship shifts such as a promise, betrayal, reconciliation, confession, or open conflict. Leave ordinary conversational warmth or irritation unquantified.
+Record only major grounded relationship changes or accumulated repeated same-kind interactions. Use directed simulation_delta.relationships with eventIds, interpretation and confidence. A passing emotion alone is not grounds for change; respect the per-turn limit.

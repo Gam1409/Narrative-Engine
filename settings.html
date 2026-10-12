@@ -268,7 +268,38 @@
                 </div>
             </div>
         </details>
-    </div>
+
+    <details class="ne-section">
+        <summary>Visual Director</summary>
+        <p>Generate from accepted scene state. Server workflows must be configured; images do not change world state.</p>
+        <label class="ne-field"><input type="checkbox" data-setting="visualEnabled"> Enable image generation</label>
+        <label class="ne-field"><input type="checkbox" data-setting="visualAutomatic"> Generate when the visual scene changes</label>
+        <label class="ne-field"><input type="checkbox" data-setting="visualKeepSeed"> Reuse the last successful scene seed</label>
+        <label class="ne-field">Full workflow <input class="text_pole" data-setting="visualWorkflow"></label>
+        <label class="ne-field"><input type="checkbox" data-setting="visualPartial"> Use a partial-update workflow after a successful image</label>
+        <label class="ne-field">Partial workflow <input class="text_pole" data-setting="visualPartialWorkflow"></label>
+        <label class="ne-field"><input type="checkbox" data-setting="visualStages.controlnet"> ControlNet: preserve composition</label>
+        <label class="ne-field"><input type="checkbox" data-setting="visualStages.ipadapter"> IPAdapter: preserve appearance</label>
+        <label class="ne-field"><input type="checkbox" data-setting="visualStages.mask"> Mask: limit updated region</label>
+        <button type="button" class="menu_button" data-action="describeVisualScene" data-viewer-title="Visual scene">Describe scene</button>
+        <button type="button" class="menu_button" data-action="requestIllustration" data-viewer-title="Illustration request">Generate illustration</button>
+        <button type="button" class="menu_button" data-action="viewVisualJobs" data-viewer-title="Visual jobs and current images">View images and jobs</button>
+    </details>
+    <details class="ne-section">
+        <summary>Inner life and world simulation</summary>
+        <div class="ne-fields ne-fields--numbers">
+            <label class="ne-field">Inner life <select class="text_pole" data-setting="innerLifeMode"><option value="off">Off (simple emotions)</option><option value="light">Light</option><option value="full">Full</option></select></label>
+            <label class="ne-field">World simulation <select class="text_pole" data-setting="simulationLevel"><option value="minimal">Minimal (time only)</option><option value="standard">Standard</option><option value="living">Living (NPC schedules)</option></select></label>
+            <label class="ne-field">Significant event threshold <input class="text_pole" type="number" data-setting="significanceThreshold" min="0" max="1" step="0.05"></label>
+            <label class="ne-field">Relationship confidence <input class="text_pole" type="number" data-setting="relationshipConfidence" min="0" max="1" step="0.05"></label>
+            <label class="ne-field">Maximum relationship change per turn <input class="text_pole" type="number" data-setting="relationshipMaxChange" min="0" max="1" step="0.05"></label>
+            <label class="ne-field">Repeated events required <input class="text_pole" type="number" data-setting="repetitionThreshold" min="2" max="20" step="1"></label>
+            <label class="ne-field">Minimum minutes per turn <input class="text_pole" type="number" data-setting="minTurnMinutes" min="0" max="525600"></label>
+            <label class="ne-field">Maximum minutes per turn <input class="text_pole" type="number" data-setting="maxTurnMinutes" min="0" max="525600"></label>
+        </div>
+        <label class="ne-field"><input type="checkbox" data-setting="showInternalState"> Show private state in author inspection (exports always include it)</label>
+    </details>
+</div>
 
     <dialog class="ne-viewer" data-viewer aria-labelledby="ne-viewer-title">
         <form method="dialog" class="ne-viewer__frame">

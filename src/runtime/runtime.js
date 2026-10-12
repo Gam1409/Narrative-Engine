@@ -1,9 +1,12 @@
+import { VisualDirector } from '../visual/director.js';
+import { simulationPolicy, prepareSimulation, innerLifeContext, postSimulationState } from '../state/simulationContext.js';
+import { pendingReactions } from '../state/simulation.js';
 import { normalizeMemory, projectState, sceneViewers } from '../memory/policy.js';
 import { textHash } from '../memory/semantic.js';
 import { VectorSearch } from '../memory/vectorSearch.js';
 import { configureSession } from '../memory/session.js';
 import { branchReferences } from '../state/history.js';
-import { getChatFingerprint, getContext, createRequestIdentity, recentChat, resolveMessageSpeaker, resolveParticipants, messageId } from '../context/stContext.js';
+import { getChatFingerprint, getContext, createRequestIdentity, recentChat, resolveGenerationRecipient, resolveMessageSpeaker, resolveParticipants, messageId } from '../context/stContext.js';
 import { DirectorService } from '../director/service.js';
 import { loadStatePromptBundle } from '../director/statePrompts.js';
 import { loadSchema } from '../director/schemaLoader.js';
@@ -90,6 +93,7 @@ export class NarrativeRuntime {
         if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
         this.context = context;
         this.stateReady = false;
+        this.visualDirector?.close();
         const fingerprint = getChatFingerprint(context);
         const stateSchema = await loadSchema('state');
         this.gate.switchContext({ chatFingerprint: fingerprint, sessionId: String(context.chatId || context.getCurrentChatId?.() || 'no-chat') });
@@ -120,6 +124,10 @@ export class NarrativeRuntime {
             this.memoryStore.items = this.stateManager.memories;
         }
         this.stateReady = true;
+        this.visualDirector=new VisualDirector(this);
+        try {this.spriteManifests.visualProfiles=await this.visualDirector.profiles();}
+        catch(error) {this.spriteManifests.visualProfiles={};this.diagnostics.error(error,'visual');}
+        if(this.settings.visualEnabled)this.visualDirector.resume().catch(error=>this.diagnostics.error(error,'visual'));
         await this.persistCompactMetadata(context);
     }
 
@@ -192,6 +200,8 @@ export class NarrativeRuntime {
             } catch (error) { if (this.gate.isCurrent(token)) this.diagnostics.update({ retrievalMode: 'lexical_degraded', embeddingError: error.message }); }
         }
         if (!this.gate.isCurrent(token)) { this.gate.finish(token); return null; }
+        const recipient = resolveGenerationRecipient(context, type);
+        const innerContext = innerLifeContext(current, this.participants, this.settings, viewers, recipient);
         const turn = (context.chat || []).filter((message) => message?.is_user).length;
         const dueEvents = Object.values(safeState.world_events || {}).some((event) => event?.status === 'due');
         const payload = {
@@ -200,6 +210,7 @@ export class NarrativeRuntime {
             recent_messages: [], // Unannotated past RP text is not an authority for another character's knowledge.
             state: safeState,
             knowledge_viewers: viewers,
+            inner_life: innerContext,
             relevant_memories: memories,
             roles: {
                 continuity: this.settings.continuity,
@@ -224,7 +235,8 @@ export class NarrativeRuntime {
                 identity, signal: token.signal, timeoutMs: this.settings.preDirectorTimeoutMs, promptAddendum,
             });
             this.gate.assertCurrent(token);
-            const packet = buildDirectorPacket({ ...pre, relevant_memories: memories, active_threads: Object.values(safeState.threads),
+            if ((resolveGenerationRecipient(getContext(), type)?.id || null) !== (recipient?.id || null)) throw new Error('Stale generation recipient');
+            const packet = buildDirectorPacket({ ...pre, inner_life: innerContext.own, observations: innerContext.observations, due_world_events: innerContext.events, relevant_memories: memories, active_threads: Object.values(safeState.threads),
                 character_states: Object.fromEntries(Object.entries(pre.character_states || {}).filter(([id]) => viewers.includes(id))) }, this.settings.packetTokenBudget);
             this.diagnostics.update({ status: 'generating', lastPacket: packet, retrievedMemories: memories });
             return packet;
@@ -288,7 +300,9 @@ export class NarrativeRuntime {
         const auditMode = this.settings.auditor ? this.settings.auditMode : 'off';
         const speaker = resolveMessageSpeaker(message, context).name;
         const payload = {
-            identity, generation_type: type, state_before: stateBefore,
+            identity, generation_type: type, state_before: postSimulationState(stateBefore, simulationPolicy(this.settings, stateBefore, this.participants, context.name1)),
+            simulation_policy: simulationPolicy(this.settings, stateBefore, this.participants, context.name1),
+            pending_reactions: pendingReactions(stateBefore, sceneViewers(stateBefore, this.participants, false)),
             memory_scope: manager.scope, memory_audience_ids: sceneViewers(stateBefore, this.participants),
             user_message: String(lastUser?.mes || ''), rp_response: String(message.mes || ''),
             timeline: stateBefore.timeline, active_threads: stateBefore.threads,
@@ -299,8 +313,14 @@ export class NarrativeRuntime {
         };
         try {
             const promptAddendum = await loadStatePromptBundle(this.settings, 'post');
+            const validatePost = result => {
+                try { prepareSimulation(result, combineDelta(result, this.settings), stateBefore, payload.simulation_policy, {rp: payload.rp_response, user: payload.user_message}); }
+                catch (error) { result.audit = {...result.audit, valid: false, errors: [...(result.audit?.errors || []), {severity:'high', kind:'simulation', message:error.message}]}; }
+                return result;
+            };
             let post = await this.director.run('post', payload, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
             await assertCurrent();
+            post = validatePost(post);
             if (!post.audit.valid && auditMode === 'strict' && highSeverity(post.audit)) {
                 const rewritten = await this.rewriteOnce(payload, post.audit, identity, token.signal);
                 await assertCurrent();
@@ -311,8 +331,10 @@ export class NarrativeRuntime {
                     await context.saveChat?.();
                     await assertCurrent();
                     context.updateMessageBlock?.(messageIndex, message, { rerenderMessage: true });
+                    payload.rp_response = rewritten;
                     post = await this.director.run('post', { ...payload, rp_response: rewritten, re_audit: true }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
                     await assertCurrent();
+                    post = validatePost(post);
                 }
             }
             const confidence = Number.isFinite(post.confidence) ? post.confidence : 0.5;
@@ -323,7 +345,8 @@ export class NarrativeRuntime {
                     memory.embeddingHash = await textHash(memory.text); return memory;
                 })) : [];
             await assertCurrent();
-            status = await manager.recordTurn(combineDelta(post, this.settings), { ...ref, generationId: identity.generationId, requestId: identity.requestId }, {
+            const delta = status === 'confirmed' ? prepareSimulation(post, combineDelta(post, this.settings), stateBefore, payload.simulation_policy, {rp:payload.rp_response,user:payload.user_message}) : {...combineDelta(post,this.settings), ...(post.simulation_delta ? {simulation: {...post.simulation_delta, policy:payload.simulation_policy}} : {})};
+            status = await manager.recordTurn(delta, { ...ref, generationId: identity.generationId, requestId: identity.requestId }, {
                 confidence, status, audit: post.audit,
                 memories: normalizedMemories,
             });
@@ -339,6 +362,7 @@ export class NarrativeRuntime {
             this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
                 context, currentSpeaker: speaker, previous: this.spriteState, allowedCandidates: payload.sprite_candidates,
             });
+            if(this.settings.visualEnabled && this.settings.visualAutomatic) this.visualDirector?.request({automatic:true}).catch(error=>this.diagnostics.error(error,'visual'));
             return true;
         } catch (error) {
             // Never write another chat's state or metadata from a late completion.
@@ -418,9 +442,9 @@ export class NarrativeRuntime {
         this.gate.invalidate();
         return this.enqueue(async () => {
             if (!this.stateReady || getChatFingerprint(context) !== getChatFingerprint(getContext())) throw new Error('World state is unavailable or chat changed');
-            if (!value || !Array.isArray(value.ops) || Object.keys(value).some(k => !['reason', 'ops'].includes(k))) throw new Error('Expected { reason, ops }');
+            if (!value || !Array.isArray(value.ops) || Object.keys(value).some(k => !['reason', 'ops', 'simulation'].includes(k))) throw new Error('Expected { reason, ops }');
             await this.stateManager.selectBranch(await branchReferences(context, Infinity, this.stateManager.canonVersion));
-            const state = await this.stateManager.authorEdit(value.ops, value.reason);
+            const state = await this.stateManager.authorEdit(value.ops, value.reason, value.simulation ? {...value.simulation, policy:{...simulationPolicy(this.settings, this.stateManager.state, this.participants, context.name1),...value.simulation.policy}} : undefined);
             await this.persistCompactMetadata(context);
             return state;
         });
@@ -466,6 +490,11 @@ export class NarrativeRuntime {
             this.gate.finish(token);
         }
     }
+
+    async describeVisualScene() { return this.visualDirector.scene(); }
+    async requestIllustration() { return this.visualDirector.request(); }
+    async visualJobs() { return this.visualDirector.jobs(); }
+    setVisualProfile(value) { return this.enqueue(()=>this.visualDirector.setProfile(value)); }
 
     async exportState() {
         return {

@@ -6,7 +6,7 @@ const { consolidateMemories, mergeState, searchMemories, selectSprite } = requir
 
 const PROMPTS = {
     pre: 'You are the Narrative Engine Director PRE pass. Return strict JSON only. Preserve user agency and canon. Produce compact continuity, relevant memory, active threads, world pressure, and direction.',
-    post: 'You are the Narrative Engine Director POST pass. Return strict JSON only. Audit continuity and user agency, then produce state_delta, relationship_delta, knowledge_delta, thread_delta, world_event_delta, memory_candidates, and sprite_decisions.',
+    post: 'You are the Narrative Engine Director POST pass. Return strict JSON only. Audit continuity and user agency, then produce state_delta, relationship_delta, knowledge_delta, thread_delta, world_event_delta, memory_candidates, and sprite_decisions. Use simulation_delta for causal inner life, relationships and scheduled world events; legacy relationship_delta and world_event_delta stay empty for new clients.',
     reconcile: 'You are the Narrative Engine reconciliation pass. Return strict JSON only. Reconcile supplied accepted chat facts with structured state using explicit chat facts as highest priority.',
 };
 
@@ -51,7 +51,7 @@ function scopeChatId(req, rawId) {
     return `${scope}:${id}`;
 }
 
-function buildRoutes(router, { config, db, provider, logger = console }) {
+function buildRoutes(router, { config, db, provider, visuals, logger = console }) {
     router.use(rateLimiter({ limit: config.rateLimit, windowMs: config.rateWindowMs }));
     router.use((req, res, next) => {
         const length = Number(req.headers['content-length'] || 0);
@@ -60,6 +60,21 @@ function buildRoutes(router, { config, db, provider, logger = console }) {
         return next();
     });
 
+
+    const visualService = () => { if (!visuals) throw Object.assign(new Error('Visual service unavailable'),{status:503}); return visuals; };
+    router.post('/visual/jobs',asyncRoute(async(req,res)=>{const body=assertObject(req.body);res.json(visualService().enqueue(scopeChatId(req,body.chatId),body));}));
+    router.get('/visual/jobs/:chatId',asyncRoute(async(req,res)=>res.json(visualService().list(scopeChatId(req,req.params.chatId)))));
+    router.get('/visual/jobs/:chatId/:id',asyncRoute(async(req,res)=>res.json(visualService().get(scopeChatId(req,req.params.chatId),validateId(req.params.id)))));
+    router.get('/visual/image/:chatId/:id/:index',asyncRoute(async(req,res)=>{
+        if(!/^\d$/.test(req.params.index))throw Object.assign(new Error('Invalid image index'),{status:400});
+        const image=await visualService().image(scopeChatId(req,req.params.chatId),validateId(req.params.id),Number(req.params.index));
+        const bytes=image.bytes;
+        const png=bytes?.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+        const jpeg=bytes?.[0]===255&&bytes?.[1]===216&&bytes?.[2]===255;
+        const webp=bytes?.subarray(0,4).toString()==='RIFF'&&bytes?.subarray(8,12).toString()==='WEBP';
+        if(!png&&!jpeg&&!webp)throw Object.assign(new Error('Unsupported image output'),{status:502});
+        res.set('Content-Type',png?'image/png':jpeg?'image/jpeg':'image/webp');res.set('X-Content-Type-Options','nosniff');res.set('Cache-Control','private, no-store');res.send(bytes);
+    }));
     router.get('/health', asyncRoute(async (_req, res) => res.json({ ok: true, schemaVersion: 2, provider: await provider.healthCheck() })));
 
     for (const phase of ['pre', 'post', 'reconcile']) {
