@@ -41,3 +41,31 @@ A server recipe can enable a conservative second pass, for example:
 ```
 
 Select `scene_detailed` as the illustration workflow after loading the recipe configuration. Scale is restricted to 1.5 or 2, denoise to 0.05–0.3, and the feature to illustrations. The base frame is saved at node 901; only final node 900 is published. Upscaling uses bicubic interpolation followed by img2img. Two-character scenes retain separate identity LoRA branches and feathered left/right masks; these are not segmentation masks and can include furniture. This can preserve existing defects and still alter details. It is disabled in built-in recipes by default and is not a visual quality gate. GPU/memory costs increase; use for selected illustrations, not every dialogue turn.
+
+
+## Layer guidance server API
+
+Stage 8 recipe, connected to the Illustration continuity source controls. Use built-in `scene_layered` with the ordinary illustration job fields and:
+
+```json
+{
+  "workflow": "scene_layered",
+  "operation": "illustration",
+  "layerCamera": "full body, eye level",
+  "layerDenoise": 0.45,
+  "layerReferences": [
+    {"assetId": "background-asset-id", "resourceKey": "64-hex-resource-key-from-asset-metadata"},
+    {"assetId": "character-A-asset-id", "resourceKey": "64-hex-resource-key-from-asset-metadata"}
+  ]
+}
+```
+
+References are ordered background first, then exactly one sprite per `scene.characters` entry in scene order (0–2 characters). Each reference must belong to the authenticated chat scope, match operation/character and its asset resource key. Use the asset metadata key, including for reused legacy backgrounds. Client-supplied filenames, rectangles and resolved `layerGuidance` are ignored. This validates reference ownership and declared identity; the server cannot infer whether the client selected the latest canonical outfit. The client checks reference freshness before submission/publication.
+
+The background sets native dimensions; both dimensions must be divisible by eight for VAE encoding, with existing 8192-side/16-megapixel limits. `layerCamera` accepts `full body, eye level`, `medium shot, eye level`, or `wide shot, eye level`. Layout version 1 preserves sprite aspect ratios and matches the preview contract (parity-tested). Framing controls placement/cropping only, not a newly synthesized camera angle.
+
+The graph loads server-owned PNGs, inverts LoadImage's inverse-alpha mask, resizes image/mask together, composites sprites and saves node 901. VAEEncode and KSampler harmonize the whole frame with bounded denoise. Separate identity passes for two characters use full-canvas sprite alpha masks, not half-frame rectangles. Node 900 alone is published. No guarantee of unchanged wardrobe or physically correct lighting/occlusion is implied. The detail pass is rejected to avoid ambiguous masks/output semantics.
+
+References are uploaded byte-for-byte through the existing validated endpoint transport before refreshing inventory. Credentials are sent only to the configured endpoint. Missing assets, unexpected upload names or unavailable nodes stop the job before `/prompt`. Asset IDs affect generated filenames; those filenames, layout and denoise participate in the graph-based resource key. The client implements explicit fallback and asynchronous missing-layer generation; the server recipe itself never substitutes missing references.
+
+The alpha convention and core node contracts were checked against upstream [LoadImage](https://github.com/Comfy-Org/ComfyUI/blob/master/nodes.py) and [mask/composite nodes](https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_mask.py). Actual installed-node compatibility is still checked at preflight.

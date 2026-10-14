@@ -67,6 +67,9 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
         const body = assertObject(req.body);
         res.json(await visualService().capabilities(body.endpoint));
     }));
+    router.post('/visual/check-workflow', asyncRoute(async (req, res) => {
+        res.json(await visualService().checkWorkflow(assertObject(req.body)));
+    }));
     router.get('/visual/anchors/:chatId', asyncRoute(async (req,res) => res.json(visualService().anchors.list(scopeChatId(req,req.params.chatId)))));
     router.post('/visual/anchors', asyncRoute(async (req,res) => {
         const body=assertObject(req.body), scope=scopeChatId(req,body.chatId);
@@ -76,6 +79,7 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
         const body=assertObject(req.body), scope=scopeChatId(req,body.chatId);
         visualService().anchors.remove(scope,validateId(body.key)); res.json({ok:true});
     }));
+    router.get('/visual/metrics/:chatId', asyncRoute(async(req,res)=>res.json(visualService().metrics(scopeChatId(req,req.params.chatId)))));
     router.get('/visual/assets/:chatId', asyncRoute(async (req,res) => res.json(visualService().assets.list(scopeChatId(req,req.params.chatId)))));
     router.get('/visual/asset/:chatId/:id', asyncRoute(async (req,res) => {
         const image = visualService().assets.image(scopeChatId(req,req.params.chatId), validateId(req.params.id));

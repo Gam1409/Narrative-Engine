@@ -1,3 +1,4 @@
+import { backgroundIdentity } from './background.js';
 import { clone, canonicalStringify } from '../utils/object.js';
 import { assertSafeData } from '../state/entities.js';
 import { sceneViewers } from '../memory/policy.js';
@@ -170,7 +171,8 @@ export async function describeScene(state, participants, profiles = {}, previous
     const content = { location, characters, keyObjects };
     const sceneId = await textHash(canonicalStringify(content));
     // These are resource inputs, independent of narrative turn counters and private state.
-    const backgroundId = await textHash(canonicalStringify({ location, keyObjects }));
+    const backgroundFixtures = keyObjects.filter(item => state.entities?.[item.id]?.params?.backgroundRole === 'fixture');
+    const backgroundId = await textHash(canonicalStringify(backgroundIdentity({location,backgroundFixtures})));
     const spriteIds = Object.fromEntries(
         await Promise.all(
             characters.map(async (character) => {
@@ -187,6 +189,8 @@ export async function describeScene(state, participants, profiles = {}, previous
         ...content,
         sceneId,
         backgroundId,
+        backgroundFixtures,
+        visualTime: state.timeline?.time || '',
         spriteIds,
         messageRef: clone(messageRef),
         changesSincePrevious,

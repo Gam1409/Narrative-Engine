@@ -5,6 +5,7 @@ const { compilePrompts } = require("./visual-prompts");
 const NAMES = {
 
   scene_integrated: "illustration",
+  scene_layered: "illustration",
 
   background_integrated: "background",
 
@@ -21,7 +22,8 @@ function integratedRecipe(name) {
 
     ? {
 
-        version: 3,
+        version: name === "scene_layered" ? 1 : 3,
+        ...(name === "scene_layered" ? {guidance:"layers", layerGuidance:{denoise:0.45, compose:"graph"}} : {}),
         ...(name.endsWith("_anima") ? {family:"anima"} : {}),
 
         adapter: "integrated-v1",
@@ -79,7 +81,14 @@ function buildIntegrated(recipe, input) {
 
     throw Error("Integrated recipe CFG must be between 1 and 12");
 
+  const layered = recipe.guidance === "layers";
+  const guidance = layered ? input.layerGuidance : null;
+  if (layered && (operation !== "illustration" || !guidance || !guidance.layout || !guidance.references))
+    throw Error("Layered illustration requires server-resolved layers");
+  if (layered && (!Number.isFinite(guidance.denoise) || guidance.denoise < 0.35 || guidance.denoise > 0.55))
+    throw Error("Layer guidance denoise must be between 0.35 and 0.55");
   const detail = recipe.detail;
+  if (layered && detail) throw Error("Layer guidance and detail pass cannot be combined yet");
 
   if (detail !== undefined && (
 
@@ -243,9 +252,9 @@ function buildIntegrated(recipe, input) {
 
   }
 
-  const width = operation === "sprite" ? 768 : 1024,
+  const width = layered ? guidance.layout.width : operation === "sprite" ? 768 : 1024,
 
-    height = operation === "sprite" ? 1024 : 768;
+    height = layered ? guidance.layout.height : operation === "sprite" ? 1024 : 768;
 
   function sample(scene, branch, latent, seed, denoise, extra = "") {
 
@@ -325,7 +334,29 @@ function buildIntegrated(recipe, input) {
 
   }
 
-  const latent = add("EmptyLatentImage", { width, height, batch_size: 1 });
+  let latent;
+  const layerMasks = [];
+  if (layered) {
+    const [background, ...sprites] = guidance.references;
+    let composite = add("LoadImage", {image: filename(background.filename, "background reference")});
+    for (const [index, sprite] of sprites.entries()) {
+      const slot = guidance.layout.slots[index];
+      const loaded = add("LoadImage", {image: filename(sprite.filename, "sprite reference")});
+      const scaled = add("ImageScale", {image: loaded, upscale_method:"bicubic", width:slot.width, height:slot.height, crop:"disabled"});
+      // LoadImage returns 1-alpha: invert it before compositing, then resize the mask with the sprite.
+      const alpha = add("InvertMask", {mask:[loaded[0],1]});
+      const maskImage = add("MaskToImage", {mask:alpha});
+      const resizedMask = add("ImageScale", {image:maskImage, upscale_method:"bilinear", width:slot.width, height:slot.height, crop:"disabled"});
+      const mask = add("ImageToMask", {image:resizedMask, channel:"red"});
+      composite = add("ImageCompositeMasked", {destination:composite, source:scaled, mask, x:slot.x, y:slot.y, resize_source:false});
+      const empty = add("SolidMask", {value:0, width, height});
+      layerMasks.push(add("MaskComposite", {destination:empty, source:mask, x:slot.x, y:slot.y, operation:"add"}));
+    }
+    graph["901"] = {class_type:"SaveImage", inputs:{images:composite, filename_prefix:"NarrativeEngine/layered_composite"}};
+    latent = add("VAEEncode", {pixels:composite, vae});
+  } else {
+    latent = add("EmptyLatentImage", { width, height, batch_size: 1 });
+  }
 
   const placed = characters.map((c, i) => ({
 
@@ -353,7 +384,7 @@ function buildIntegrated(recipe, input) {
 
     input.seed,
 
-    1,
+    layered ? guidance.denoise : 1,
 
     operation === "illustration"
 
@@ -369,37 +400,15 @@ function buildIntegrated(recipe, input) {
 
       if (requireLora && !character.profile?.lora?.length) continue;
 
-      const empty = add("SolidMask", { value: 0, width, height });
-
-      const region = add("SolidMask", { value: 1, width: width / 2, height });
-
-      const feather = add("FeatherMask", {
-
-        mask: region,
-
-        left: 32,
-
-        top: 16,
-
-        right: 32,
-
-        bottom: 16,
-
-      });
-
-      const mask = add("MaskComposite", {
-
-        destination: empty,
-
-        source: feather,
-
-        x: (index * width) / 2,
-
-        y: 0,
-
-        operation: "add",
-
-      });
+      let mask = layerMasks[index];
+      if (!mask) {
+        const empty = add("SolidMask", { value: 0, width, height });
+        const region = add("SolidMask", { value: 1, width: width / 2, height });
+        const feather = add("FeatherMask", { mask: region, left: 32, top: 16, right: 32, bottom: 16 });
+        mask = add("MaskComposite", {
+          destination: empty, source: feather, x: (index * width) / 2, y: 0, operation: "add",
+        });
+      }
 
       const encoded = add("VAEEncode", { pixels: image, vae });
 

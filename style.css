@@ -190,3 +190,5 @@
 .ne-graph-view { min-width: 0; max-width: 100%; }
 .ne-graph-scroll { width: 100%; box-sizing: border-box; }
 .ne-workflow-dialog .ne-field textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+
+.ne-composite-canvas { display:block; width:100%; height:100%; }

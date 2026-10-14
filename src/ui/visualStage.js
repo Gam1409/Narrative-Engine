@@ -1,3 +1,5 @@
+import {COMPOSITE_CAMERAS, compositeSources} from '../visual/layout.js';
+import {renderComposite} from './visualComposite.js';
 import { planLayers } from '../visual/layers.js';
 import { getContext } from '../context/stContext.js';
 const validUrl = (url) =>
@@ -20,15 +22,26 @@ export function showVisualStage(runtime) {
     close.className = 'menu_button';
     close.textContent = 'Close';
     close.addEventListener('click', () => dialog.close());
-    dialog.append(title, stage, status, close);
+    const modeLabel=document.createElement('label');modeLabel.textContent='View ';const mode=document.createElement('select');
+    for(const [value,text] of [['layers','Visual novel layers'],['composite','Composition preview (no GPU)']]){const o=document.createElement('option');o.value=value;o.textContent=text;mode.append(o);}modeLabel.append(mode);
+    const frameLabel=document.createElement('label');frameLabel.textContent=' Preview framing ';const framing=document.createElement('select');
+    for(const value of Object.keys(COMPOSITE_CAMERAS)){const o=document.createElement('option');o.value=value;o.textContent=value;framing.append(o);}frameLabel.append(framing);frameLabel.hidden=true;
+    const note=document.createElement('p');note.className='ne-help';note.textContent='Composition preview uses existing pixels only. It does not harmonize lighting or perspective; characters remain in front of the background. Up to two characters.';note.hidden=true;
+    const waiting = document.createElement('p');
+    waiting.setAttribute('role', 'status');
+    dialog.append(waiting);
+    dialog.append(title, modeLabel, frameLabel, note, stage, status, close);
     document.body.append(dialog);
-    let revision = 0,
+    let revision = 0, requestRevision = 0,
         rendered = '';
     const render = async () => {
-        const currentRevision = ++revision;
+        const currentRequest = ++requestRevision;
+        const pending = getContext().chatMetadata?.narrative_engine_illustration_wait;
+        waiting.textContent = pending ? `Illustration: ${pending.status}. ${pending.reason || ''}` : '';
+        waiting.hidden = !pending;
         const scene = await runtime.visualDirector.scene();
         const plans = await planLayers(scene, runtime.settings);
-        if (currentRevision !== revision || !dialog.isConnected) return;
+        if (currentRequest !== requestRevision || !dialog.isConnected) return;
         const composition = getContext().chatMetadata?.narrative_engine_layers;
         if (
             runtime.visualDirector.closed ||
@@ -40,16 +53,32 @@ export function showVisualStage(runtime) {
             scene.canonVersion !== composition.canonVersion ||
             runtime.stateManager.pending.length
         ) {
+            revision++;
             stage.replaceChildren();
             rendered = '';
             status.textContent = 'Current scene layers are not ready.';
             return;
         }
-        const signature = JSON.stringify(composition);
+        const signature = JSON.stringify([composition,mode.value,framing.value]);
         if (signature === rendered) return;
+        const currentRevision = ++revision;
         rendered = signature;
         stage.replaceChildren();
         const layers = composition.layers || [];
+        if(mode.value==='composite') {
+            try {
+                const sources=compositeSources(scene,plans,composition);
+                const result=await renderComposite(sources,framing.value);
+                if(currentRevision!==revision || !dialog.isConnected) return;
+                stage.style.aspectRatio=`${result.layout.width} / ${result.layout.height}`;
+                stage.append(result.canvas);
+                status.textContent=`Composition preview ready: ${result.layout.slots.length} character(s), ${result.layout.width} × ${result.layout.height}. No generation started.`;
+            } catch(error) {
+                if(currentRevision===revision && dialog.isConnected){rendered='';status.textContent=error.message;}
+            }
+            return;
+        }
+        stage.style.aspectRatio='1216 / 832';
         const sprites = layers.filter((layer) => layer.operation === 'sprite');
         for (const layer of layers) {
             if (layer.status !== 'done' || !validUrl(layer.url)) continue;
@@ -72,12 +101,16 @@ export function showVisualStage(runtime) {
         status.textContent = incomplete.length
             ? incomplete.map((layer) => `${layer.label || layer.slot}: ${layer.error || layer.status}`).join('; ')
             : `Scene layers ready${Number.isFinite(composition.timing?.readyMs) ? ` (${(composition.timing.readyMs / 1000).toFixed(1)} s)` : ''}`;
+        const background = layers.find(layer => layer.operation === 'background');
+        if (background) status.textContent += ` — Background: ${background.status}; ${background.backgroundDecision || ''}`;
         if (anchorWarnings.length) status.textContent += `  -  Face anchor: ${anchorWarnings.join('; ')}`;
     };
     const update = () =>
         render().catch((error) => {
             status.textContent = error.message;
         });
+    mode.addEventListener('change',()=>{frameLabel.hidden=note.hidden=mode.value!=='composite';rendered='';update();});
+    framing.addEventListener('change',()=>{rendered='';update();});
     globalThis.addEventListener('narrative-engine-layers', update);
     // Re-check canon on edits/swipes even when no new generation is requested.
     const timer = setInterval(update, 2000);

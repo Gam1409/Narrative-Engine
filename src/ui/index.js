@@ -16,6 +16,9 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     showInternalState: false,
     visualUserWorkflows: [], visualAnimaVariant: 'base', visualPositive: '', visualNegative: '',
     visualIllustrationPolicy: 'significant',
+    visualIllustrationSource: 'fresh', visualLayersNotReady: 'wait', visualLayersTimeoutMs: 120000,
+    visualLayerCamera: 'full body, eye level', visualLayerDenoise: 0.45,
+    visualBackgroundPolicy: 'location', visualBackgroundHysteresis: 2,
     visualLlmIntent: false, visualLocalExpressions: false, visualFaceDetector: '',
     visualLayers: false, visualBackgroundWorkflow: 'background', visualSpriteWorkflow: '',
     visualEndpoint: '', visualCheckpoint: '', visualPromptProfile: 'sdxl', visualCooldownMs: 15000,
@@ -58,7 +61,7 @@ const PROFILE_DESCRIPTIONS = Object.freeze({
 });
 
 const NUMBER_SETTINGS = new Set([
-    'visualCooldownMs',
+    'visualCooldownMs', 'visualBackgroundHysteresis', 'visualLayersTimeoutMs', 'visualLayerDenoise',
     'significanceThreshold','relationshipConfidence','relationshipMaxChange','repetitionThreshold','minTurnMinutes','maxTurnMinutes',
     'memoryWeights.semantic', 'memoryWeights.importance', 'memoryWeights.entities', 'memoryWeights.location', 'memoryWeights.recency', 'memoryWeights.old',
     'minimumConfidence', 'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'checkpointInterval',
@@ -363,14 +366,16 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
     renderSettings(panel, current);
     renderUiStatus(panel, status);
 
+    let workflowLibrary;
     const commit = (path, value) => {
         setSettingValue(current, path, value);
         renderSettings(panel, current);
+        workflowLibrary?.render();
         updateProfileStatus();
         onSettingsChange(current, { path, value });
     };
 
-    bindWorkflowLibrary(panel, current, commit, signal);
+    workflowLibrary = bindWorkflowLibrary(panel, current, commit, signal, actions.checkVisualWorkflow);
 
     for (const control of panel.querySelectorAll('[data-setting]')) {
         control.addEventListener('change', () => commit(control.dataset.setting, readControlValue(control)), { signal });

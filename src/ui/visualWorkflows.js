@@ -1,13 +1,15 @@
 import { mountWorkflowGraph } from './visualWorkflowGraph.js';
 import { readWorkflowFile, validateUserRecipe, saveUserWorkflow, WORKFLOW_SETTINGS, RECIPE_LIMIT, isPromptInput } from '../visual/workflows.js';
 
-export function bindWorkflowLibrary(panel, settings, commit, signal) {
+export function bindWorkflowLibrary(panel, settings, commit, signal, checkWorkflow) {
     const doc = panel.ownerDocument;
     const picker = panel.querySelector('[data-workflow-file]');
     const list = panel.querySelector('[data-workflow-library]');
     const status = panel.querySelector('[data-workflow-notice]');
     if (!picker || !list) return {render() {}};
     let dialog;
+    let checkRevision = 0, pendingCheck = 0, checkedSnapshot = null;
+    const selectionSnapshot = () => JSON.stringify([settings.visualUserWorkflows?.find(row => row.id === list.value), settings.visualEndpoint, settings.visualCheckpoint]);
     const notice = (text, error=false) => {status.textContent=text;status.dataset.kind=error?'error':'info';};
     const option = (value, label) => {const o=doc.createElement('option');o.value=value;o.textContent=label;return o;};
     const render = () => {
@@ -15,7 +17,12 @@ export function bindWorkflowLibrary(panel, settings, commit, signal) {
         list.replaceChildren(option('','Choose an imported workflow'));
         for(const item of settings.visualUserWorkflows || []) list.append(option(item.id,`${item.name} · ${item.recipe.operation}`));
         list.value=selected;
-        for(const button of panel.querySelectorAll('[data-workflow-edit],[data-workflow-export],[data-workflow-remove]')) button.disabled=!list.value;
+        for(const button of panel.querySelectorAll('[data-workflow-edit],[data-workflow-export],[data-workflow-remove],[data-workflow-check]')) button.disabled=!list.value;
+        const checkButton = panel.querySelector('[data-workflow-check]');
+        if (checkButton) checkButton.disabled = !list.value || pendingCheck === checkRevision && pendingCheck !== 0;
+        if (checkedSnapshot !== null && checkedSnapshot !== selectionSnapshot()) {
+            checkedSnapshot = null; notice('Settings changed. Check this workflow again.');
+        }
         const suggestions=panel.querySelector('#ne-user-workflows');
         suggestions?.replaceChildren(...['scene_full','scene_integrated','background','background_integrated','sprite_integrated','scene_anima','background_anima','sprite_anima'].map(id=>option(id,id)), ...(settings.visualUserWorkflows || []).map(item=>option(item.id,item.name)));
     };
@@ -35,6 +42,38 @@ export function bindWorkflowLibrary(panel, settings, commit, signal) {
         const item=settings.visualUserWorkflows?.find(x=>x.id===list.value);
         if(item) openImport({graph:item.recipe.workflow,recipe:structuredClone(item.recipe)},item.name,item.id);
     },{signal});
+    list.addEventListener('change', () => {checkRevision++; checkedSnapshot = null; render(); notice('Selection changed. Check this workflow separately.');}, {signal});
+    panel.querySelector('[data-workflow-check]').addEventListener('click', async (event) => {
+        const item = settings.visualUserWorkflows?.find(row => row.id === list.value);
+        if (!item) return;
+        if (typeof checkWorkflow !== 'function') return notice('Workflow checking is unavailable in this preview.', true);
+        const revision = ++checkRevision;
+        pendingCheck = revision;
+        checkedSnapshot = null;
+        const snapshot = JSON.stringify([item, settings.visualEndpoint, settings.visualCheckpoint]);
+        const button = event.currentTarget;
+        button.disabled = true;
+        notice('Reading ComfyUI node and model inventory. No generation will be started.');
+        try {
+            const result = await checkWorkflow(structuredClone(item));
+            if (signal.aborted || revision !== checkRevision) return;
+            const current = settings.visualUserWorkflows?.find(row => row.id === list.value);
+            if (snapshot !== JSON.stringify([current, settings.visualEndpoint, settings.visualCheckpoint])) {
+                notice('Settings changed during the check. Check the workflow again.'); return;
+            }
+            if (typeof result?.ok !== 'boolean' || !Array.isArray(result.errors) || result.errors.some(error => typeof error !== 'string') || result.ok !== (result.errors.length === 0)) throw Error('Invalid workflow check response.');
+            checkedSnapshot = snapshot;
+            notice(`${item.name}: ${result.ok ? 'saved graph matches the server inventory.' : result.errors.join('; ')} ${result.note || ''}`, !result.ok);
+        } catch (error) {
+            if (!signal.aborted && revision === checkRevision) {
+                if (snapshot !== selectionSnapshot()) notice('Settings changed during the check. Check the workflow again.');
+                else notice(`Workflow was not verified: ${error.message}`, true);
+            }
+        } finally {
+            if (pendingCheck === revision) pendingCheck = 0;
+            if (!signal.aborted) render();
+        }
+    }, {signal});
     panel.querySelector('[data-workflow-export]').addEventListener('click',()=>{
         const item=settings.visualUserWorkflows?.find(x=>x.id===list.value);
         if(item) {download(item.id+'.json',item.recipe);notice('Recipe exported. It contains workflow parameters, not model files.');}

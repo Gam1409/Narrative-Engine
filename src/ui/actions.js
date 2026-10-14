@@ -1,3 +1,4 @@
+import { getContext, getChatFingerprint } from '../context/stContext.js';
 import { editVisualAnchor } from './visualAnchor.js';
 import { showVisualStage } from './visualStage.js';
 import { editVisualCard } from './visualCard.js';
@@ -31,14 +32,18 @@ export function subsystemStatus(runtime) {
 
 export function createUiActions(runtime) {
     return {
+        requestLayerIllustration: async () => runtime.visualDirector.request({fromLayers:true}),
+        visualMetrics: async () => runtime.visualDirector.api(`metrics/${getChatFingerprint(getContext())}`),
+        regenerateBackground: async () => runtime.visualDirector.request({backgroundOnly:true,forceBackground:true}),
         requestVisualLayers: async () => runtime.visualDirector.request({layers:true}),
         viewVisualLayers: async () => showVisualStage(runtime),
         visualCapabilities: async () => runtime.visualDirector.capabilities(),
+        checkVisualWorkflow: async (item) => runtime.visualDirector.checkWorkflow(item),
         editVisualCard: async () => editVisualCard(runtime),
         editVisualAnchor: async () => editVisualAnchor(runtime),
         describeVisualScene: async () => runtime.describeVisualScene(),
         requestIllustration: async () => runtime.requestIllustration(),
-        viewVisualJobs: async () => {const jobs=await runtime.visualJobs();return {jobs,visualGallery:jobs.filter(j=>j.status==='done'&&!j.stale).flatMap(j=>j.images.map(url=>({url,caption:`${j.workflow} - seed ${j.seed}`})))};},
+        viewVisualJobs: async () => {const jobs=await runtime.visualJobs();return {jobs,visualGallery:jobs.filter(j=>j.status==='done'&&!j.stale).flatMap(j=>j.images.map(url=>({url,caption:`${j.workflow} - seed ${j.seed}${j.fallbackReason ? " - Fresh fallback: " + j.fallbackReason : ""}`})))};},
         testConnection: async () => {
             const result = await runtime.healthCheck();
             if (!result.ok) throw new Error(result.error || 'Director is offline.');

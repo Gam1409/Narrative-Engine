@@ -12,6 +12,8 @@ const { compilePrompts } = require('./visual-prompts');
 const { builtinRecipe } = require('./visual-recipes');
 const { buildWorkflow } = require('./visual-workflow');
 const { userRecipe } = require('./visual-user-recipes');
+const { reuseLegacyBackground } = require('./visual-background');
+const { resolveLayerGuidance } = require('./visual-guidance');
 const { VisualAssets, resourceKey } = require('./visual-assets');
 const { VisualHistoryMaintenance } = require('./visual-history');
 const { VisualAnchors, anchorKey, preserveOutsideFace, uploadImage, detectedFace } = require('./visual-anchors');
@@ -39,6 +41,8 @@ class VisualQueue {
         this.db.exec(
             'CREATE TABLE IF NOT EXISTS visual_jobs (id TEXT PRIMARY KEY, scope TEXT NOT NULL, request_key TEXT NOT NULL, status TEXT NOT NULL, data_json TEXT NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(scope,request_key));',
         );
+        this.db.exec('CREATE TABLE IF NOT EXISTS visual_background_aliases (scope TEXT NOT NULL, resource_key TEXT NOT NULL, asset_id TEXT NOT NULL, PRIMARY KEY(scope,resource_key))');
+        this.db.exec('CREATE TABLE IF NOT EXISTS visual_reuse_events (scope TEXT NOT NULL, request_key TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY(scope,request_key))');
         this.historyMaintenance = new VisualHistoryMaintenance(this.db, config);
         // A crash during submission is ambiguous. Never spend GPU work by resubmitting blindly.
         for (const row of this.db.prepare("SELECT data_json FROM visual_jobs WHERE status='running'").all()) {
@@ -55,6 +59,24 @@ class VisualQueue {
             .run(job.id, job.scope, job.requestKey, job.status, JSON.stringify(job), Date.now());
         return this.public(job);
     }
+    metrics(scope) {
+        const counts = Object.fromEntries(['background','sprite','illustration','local_expression'].map(kind =>
+            [kind, {jobs:0, submitted:0, completed:0, failed:0, reused:0}]));
+        const rows = this.db.prepare(`SELECT
+            CASE WHEN json_type(data_json,'$.expressionAnchor')='object' THEN 'local_expression'
+                 ELSE coalesce(json_extract(data_json,'$.operation'),'illustration') END AS kind,
+            count(*) AS jobs,
+            sum(CASE WHEN EXISTS(SELECT 1 FROM json_each(json_extract(data_json,'$.history'))
+                WHERE json_extract(value,'$.status')='running') THEN 1 ELSE 0 END) AS submitted,
+            sum(CASE WHEN status='done' AND coalesce(json_extract(data_json,'$.reused'),0)=0 THEN 1 ELSE 0 END) AS completed,
+            sum(CASE WHEN status='failed_final' THEN 1 ELSE 0 END) AS failed
+            FROM visual_jobs WHERE scope=? AND coalesce(json_extract(data_json,'$.reused'),0)=0 GROUP BY kind`).all(scope);
+        for (const row of rows) if (counts[row.kind]) Object.assign(counts[row.kind], row);
+        for (const row of this.db.prepare('SELECT kind,count(*) AS n FROM visual_reuse_events WHERE scope=? GROUP BY kind').all(scope))
+            if (counts[row.kind]) counts[row.kind].reused = row.n;
+        return {counts, scope:'current chat', note:'Submitted includes ambiguous attempts; these are task counts, not GPU duration or cost. Cache hits counted since this feature was installed.'};
+    }
+
     public(job) {
         const { scope, graph, ...safe } = job;
         const started = job.history?.find((event) => event.status === 'running')?.at;
@@ -116,9 +138,30 @@ class VisualQueue {
             workflows: [...new Set(['scene_full', 'background', 'scene_integrated', 'background_integrated', 'sprite_integrated', 'scene_anima', 'background_anima', 'sprite_anima', ...Object.keys(this.recipes)])],
         };
     }
+    async checkWorkflow(input) {
+        const recipe = userRecipe(input);
+        if (input.checkpoint !== undefined && typeof input.checkpoint !== 'string') fail('Checkpoint must be text');
+        if (recipe.checkpointBinding && input.checkpoint?.trim()) {
+            const {node, input: field} = recipe.checkpointBinding;
+            recipe.workflow[node].inputs[field] = input.checkpoint.trim();
+        }
+        // Inventory lookup only: no enqueue, uploads, compilation or /prompt request.
+        const inventory = await this.inventory(input.endpoint, true);
+        const errors = checkGraph(recipe.workflow, inventory);
+        if (!inventory[recipe.workflow[recipe.outputNode].class_type]?.output_node)
+            errors.push(`${recipe.outputNode}: selected image output is not an output node`);
+        return {
+            ok: errors.length === 0, errors, checkedAt: new Date().toISOString(),
+            scope: 'saved-graph-inventory',
+            note: 'Checks saved graph values and the selected checkpoint only. Scene bindings, character LoRAs and generated image quality require generation-time validation. No job was created.',
+        };
+    }
     async uploadAnchor(job) {
-        const anchor = job.expressionAnchor;
-        const bytes = uploadImage(this.assets.image(job.scope, anchor.assetId).bytes);
+        return this.uploadReference(job, job.expressionAnchor, true);
+    }
+    async uploadReference(job, anchor, flatten = false) {
+        const original = this.assets.image(job.scope, anchor.assetId).bytes;
+        const bytes = flatten ? uploadImage(original) : original;
         const boundary = 'ne-' + crypto.randomUUID();
         const body = Buffer.concat([
             Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${anchor.filename}"\r\nContent-Type: image/png\r\n\r\n`),
@@ -130,9 +173,15 @@ class VisualQueue {
             'content-type':`multipart/form-data; boundary=${boundary}`, 'content-length':body.length,
             ...(this.config.comfyKey && this.endpoint(job.endpoint)===this.endpoint(this.config.comfyUrl) ? {authorization:`Bearer ${this.config.comfyKey}`} : {}),
         }}, body, checked.addresses, this.config.timeoutMs, this.controllers);
-        if (result.name !== anchor.filename || (result.subfolder || '') !== '') throw Error('Anchor upload returned an unexpected filename');
+        if (result.name !== anchor.filename || (result.subfolder || '') !== '') throw Error('Reference upload returned an unexpected filename');
     }
     async preflight(job) {
+        if (job.layerGuidance) {
+            // Fetch every asset before the first upload, so missing local references fail without partial transfer.
+            for (const ref of job.layerGuidance.references) this.assets.image(job.scope, ref.assetId);
+            for (const ref of job.layerGuidance.references) await this.uploadReference(job, ref);
+            this.inventoryCache.delete(this.endpoint(job.endpoint));
+        }
         if (job.expressionAnchor) {
             await this.uploadAnchor(job);
             this.inventoryCache.delete(this.endpoint(job.endpoint));
@@ -202,9 +251,15 @@ class VisualQueue {
             automatic: input.automatic === true,
             operation: input.operation || 'illustration',
             generationKey: input.generationKey || null,
+            forceLayers: input.forceLayers === true,
+            guided: false, reason: typeof input.fallbackReason === 'string' ? input.fallbackReason.slice(0,300) : 'fresh requested',
+            illustrationSource: input.illustrationSource === 'layers' ? 'layers' : 'fresh',
+            fallbackReason: typeof input.fallbackReason === 'string' ? input.fallbackReason.slice(0,300) : null,
             selectionId: input.selectionId || null,
             resourceInput: input.resourceInput || null,
             characterId: input.characterId || null,
+            backgroundPolicy: input.operation === 'background' ? input.backgroundPolicy || null : null,
+            backgroundDecision: input.operation === 'background' ? String(input.backgroundDecision || '').slice(0,200) : null,
         };
         try {
             if (input.customRecipe && !String(input.workflow).startsWith('user-')) fail('Imported recipes cannot override built-in or server workflows');
@@ -216,7 +271,15 @@ class VisualQueue {
                     'Sprite requires a dedicated recipe with operation: sprite, outputNode and transparent PNG output',
                 );
             // Reference filenames/rectangles are always server-owned, never supplied by the job caller.
-            const generation = { ...input, expressionAnchor: undefined };
+            const generation = { ...input, expressionAnchor: undefined, layerGuidance: undefined };
+            if (recipe?.guidance === 'layers') {
+                job.illustrationSource = 'layers';
+                job.guided = true; job.reason = null;
+                job.layerGuidance = resolveLayerGuidance(this.assets, scope, input, recipe);
+                generation.layerGuidance = job.layerGuidance;
+            } else if (input.layerReferences !== undefined) {
+                fail('Selected workflow does not support layer guidance');
+            }
             if (job.operation === 'sprite' && recipe.adapter === 'integrated-v1') {
                 job.anchorKey = anchorKey(input, recipe);
                 if (input.localExpressions === true) job.expressionAnchor = this.anchors.find(scope, job.anchorKey);
@@ -238,6 +301,10 @@ class VisualQueue {
             job.resourceKey = resourceKey(job);
             if (job.operation !== 'illustration') {
                 let asset = this.assets.find(scope, job.resourceKey);
+                if (!asset) {
+                    asset = reuseLegacyBackground(this,scope,job,recipe,input);
+                    if(asset) job.backgroundDecision = 'reused cached (verified legacy background; may include old objects)';
+                }
                 if (!asset && job.expressionAnchor?.expression &&
                     JSON.stringify(job.expressionAnchor.expression) === JSON.stringify({emotion:input.scene.characters[0].emotion || '', expressed:input.scene.characters[0].expressed || []}))
                     asset = this.assets.metadata(scope,job.expressionAnchor.assetId);
@@ -249,6 +316,8 @@ class VisualQueue {
                     job.history.push({ status: 'done', at: Date.now() });
                 }
             }
+            if (job.operation === 'background' && !job.reused && !job.backgroundDecision?.startsWith('requested'))
+                job.backgroundDecision = 'requested (no ready background for chosen inputs)';
             job.prompts.negativeBound = recipe.adapter === 'integrated-v1' || (recipe.bindings || []).some((binding) => binding.source === 'negative');
         } catch (error) {
             job.status = 'failed_final';
@@ -279,7 +348,11 @@ class VisualQueue {
                         this.transition(prior, 'cancelled', { error: 'Superseded by a newer automatic scene' });
                 }
             }
-            if (selected) return this.public(selected);
+            if (selected) {
+                if (selected.reused) this.db.prepare('INSERT OR IGNORE INTO visual_reuse_events VALUES(?,?,?)')
+                    .run(scope,input.requestKey,selected.expressionAnchor ? 'local_expression' : selected.operation);
+                return this.public(selected);
+            }
             if (
                 job.status === 'queued' &&
                 this.db

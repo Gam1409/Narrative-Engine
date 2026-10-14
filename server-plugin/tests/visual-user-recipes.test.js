@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
 const {Database}=require('../lib/database');const {VisualQueue}=require('../lib/visual');
 const recipe=()=>({operation:'illustration',version:1,outputNode:'1',workflow:{1:{class_type:'SaveImage',inputs:{text:'',seed:0}}},bindings:[{node:'1',input:'text',source:'positive'}]});
@@ -31,4 +31,33 @@ test('prompt chips render into exactly the selected input and preserve literal t
  assert.match(graph['1'].inputs.text,/^fine fabric\n/);assert.match(graph['1'].inputs.text,/kitchen/);assert.match(graph['1'].inputs.text,/custom detail$/);assert.equal(graph['1'].inputs.other,'untouched');
  const invalid=input();invalid.requestKey='bad';invalid.customRecipe.bindings[0].template='{{system}}';
  assert.equal(q.enqueue('u:c',invalid).status,'failed_final');
+});
+
+
+test('standalone workflow check only reads fresh inventory and never creates a job', async t => {
+ const q=fixture(t), calls=[];
+ const data=input();data.endpoint='https://comfy.example';
+ data.customRecipe.workflow['2']={class_type:'CheckpointLoaderSimple',inputs:{ckpt_name:'old.safetensors'}};
+ data.customRecipe.checkpointBinding={node:'2',input:'ckpt_name'};data.checkpoint='installed.safetensors';
+ const before=structuredClone(data);
+ q.api=async (...args)=>{calls.push(args);return {
+  SaveImage:{input:{required:{text:['STRING'],seed:['INT']}},output_node:true},
+  CheckpointLoaderSimple:{input:{required:{ckpt_name:[['installed.safetensors']]}},output:['MODEL']}
+ };};
+ const result=await q.checkWorkflow(data);
+ assert.equal(result.ok,true);assert.equal(result.scope,'saved-graph-inventory');assert.deepEqual(data,before);
+ assert.equal(q.db.prepare('SELECT COUNT(*) AS n FROM visual_jobs').get().n,0);
+ await q.checkWorkflow(data);assert.equal(calls.length,2);
+ for(const call of calls){assert.equal(call[0],'/object_info');assert.equal(call[1],undefined);assert.equal(call[3],'https://comfy.example');}
+ data.checkpoint='missing.safetensors';const invalid=await q.checkWorkflow(data);
+ assert.equal(invalid.ok,false);assert.ok(invalid.errors.some(x=>x.includes('2.ckpt_name')));
+});
+
+test('standalone workflow check rejects bad bindings before network and reports unavailable server', async t => {
+ const q=fixture(t);let calls=0;
+ q.api=async()=>{calls++;throw Error('offline');};
+ const data=input();data.endpoint='https://comfy.example';data.customRecipe.bindings[0].node='missing';
+ await assert.rejects(q.checkWorkflow(data),/Invalid recipe binding/);assert.equal(calls,0);
+ data.customRecipe=recipe();await assert.rejects(q.checkWorkflow(data),/offline/);
+ assert.equal(calls,1);assert.equal(q.db.prepare('SELECT COUNT(*) AS n FROM visual_jobs').get().n,0);
 });

@@ -310,8 +310,9 @@ test('native fetch receives the browser global rather than the director instance
 });
 
 
-test('resume selects lookup-only when automatic generation is disabled',async()=>{
-    const director=new VisualDirector({settings:{visualEnabled:true,visualLayers:true,visualAutomatic:false}});
+test('resume selects lookup-only when automatic generation is disabled',async(t)=>{
+    const {director}=fixture(t,async()=>{throw Error('No network expected');});
+    Object.assign(director.runtime.settings,{visualEnabled:true,visualLayers:true,visualAutomatic:false});
     director.request=async options=>options;
     assert.deepEqual(await director.resume(),{layers:true,automatic:false,resumeOnly:true});
     director.runtime.settings.visualAutomatic=true;
@@ -407,4 +408,212 @@ test('enabled visual direction reaches illustration composition and stale canon 
     const old=await director.scene();s.characters.Anna.clothing.costume='changed';
     assert.equal(director.matches({scene:old},await director.scene()),false);
     assert.equal(calls,2);
+});
+
+
+test('manual background refresh bypasses automatic cooldown without submitting sprites',async t=>{
+ const submitted=[];
+ const {director,runtime}=fixture(t,async(url,opts)=>{
+  const body=JSON.parse(opts.body);submitted.push(body);
+  return {ok:true,json:async()=>({id:'bg',status:'done',scene:body.scene,asset:{id:'asset'},outputs:[]})};
+ });
+ runtime.settings.visualSpriteWorkflow='sprite_integrated';runtime.settings.visualCooldownMs=300000;
+ director.lastAutomaticAt=Date.now();
+ const result=await director.request({backgroundOnly:true,forceBackground:true});
+ assert.equal(result.operation,'layers');assert.equal(submitted.length,1);assert.equal(submitted[0].operation,'background');
+ assert.equal(submitted[0].backgroundManual,true);assert.match(submitted[0].backgroundDecision,/manual/);
+});
+
+
+test('concurrent inspection cannot roll back a manual background selection',async t=>{
+ const {director}=fixture(t,async()=>{});
+ await director.scene({intent:false});
+ const [inspection,manual]=await Promise.all([director.scene({intent:false}),director.scene({intent:false,forceBackground:true})]);
+ assert.notEqual(inspection.background.id,manual.background.id);
+ assert.equal((await director.scene({intent:false})).background.id,manual.background.id);
+});
+
+
+async function readyLayers(director, runtime, context) {
+    const {planLayers, composeLayers} = await import('../src/visual/layers.js');
+    const scene = await director.scene();
+    const plans = await planLayers(scene, runtime.settings);
+    context.chatMetadata.narrative_engine_layers = composeLayers(scene, plans,
+        plans.map((plan,index) => ({status:'done',asset:{id:'asset-'+index,resourceKey:String(index+1).repeat(64)}})), 'ne-one');
+}
+
+test('layer illustration submits exact references and rejects publication after a background replacement', async t => {
+    let submitted;
+    const {director,runtime,context} = fixture(t, async (_url,options) => {
+        if (options.method === 'GET') return {ok:true,json:async()=>[]};
+        submitted=JSON.parse(options.body);
+        return {ok:true,json:async()=>({...submitted,id:'guided',status:'done',outputs:[{filename:'final.png'}]})};
+    });
+    runtime.settings.visualIllustrationSource='layers';
+    runtime.settings.visualSpriteWorkflow='sprite_integrated';
+    await readyLayers(director,runtime,context);
+    // Inspect completion explicitly instead of the asynchronous watcher.
+    const follow=director.follow.bind(director);director.follow=async()=>{};
+    const job=await director.request();
+    assert.equal(submitted.workflow,'scene_layered');
+    assert.equal(submitted.layerReferences.length,2);
+    assert.equal(submitted.layerReferences[1].assetId,'asset-1');
+    assert.equal(submitted.layerDenoise,0.45);
+    context.chatMetadata.narrative_engine_layers.layers[0].assetId='replacement';
+    await follow(job,context,submitted.chatId,runtime.stateManager);
+    assert.equal(context.chatMetadata.narrative_engine_visual,undefined);
+});
+
+test('missing layers fail without submission or explicitly fall back with a recorded reason', async t => {
+    let posts=[];
+    const {director,runtime} = fixture(t, async (_url,options) => {
+        if(options.method==='GET') return {ok:true,json:async()=>[]};
+        const input=JSON.parse(options.body);posts.push(input);
+        return {ok:true,json:async()=>({...input,id:'fresh',status:'failed_final',outputs:[]})};
+    });
+    runtime.settings.visualIllustrationSource='layers';runtime.settings.visualLayersNotReady='fail';
+    await assert.rejects(director.request(),/not ready/);assert.equal(posts.length,0);
+    runtime.settings.visualIllustrationSource='layers_or_fresh';
+    await director.request();assert.equal(posts.length,1);
+    assert.equal(posts[0].workflow,'scene_full');assert.equal(posts[0].illustrationSource,'fresh');
+    assert.match(posts[0].fallbackReason,/not ready/);assert.equal(posts[0].layerReferences,undefined);
+});
+
+test('waiting returns immediately, builds only missing layers and resumes one illustration', async t => {
+    const posts=[];
+    const {director,runtime,context} = fixture(t,async(_url,options)=>{
+        if(options.method==='GET') return {ok:true,json:async()=>[]};
+        const input=JSON.parse(options.body);posts.push(input);
+        return {ok:true,json:async()=>({...input,id:'job-'+posts.length,status:'done',outputs:[{filename:'final.png'}],
+            asset:{id:'new-sprite',resourceKey:'c'.repeat(64)}})};
+    });
+    runtime.settings.visualIllustrationSource='layers';runtime.settings.visualSpriteWorkflow='sprite_integrated';
+    await readyLayers(director,runtime,context);
+    context.chatMetadata.narrative_engine_layers.layers[1].status='requested';
+    const result=await director.request();assert.equal(result.status,'waiting');
+    for(let i=0;i<30 && !posts.some(p=>p.workflow==='scene_layered');i++) await new Promise(r=>setTimeout(r,20));
+    assert.deepEqual(posts.map(p=>p.workflow),['sprite_integrated','scene_layered']);
+    assert.equal(posts[1].layerReferences[0].assetId,'asset-0');
+    assert.equal(posts[1].layerReferences[1].assetId,'new-sprite');
+});
+
+test('scene changes and timeout stop a deferred illustration without submitting it',async t=>{
+    const posts=[];
+    const {director,runtime,context,s}=fixture(t,async(_url,options)=>{
+        if(options.method==='GET') return {ok:true,json:async()=>[]};
+        const input=JSON.parse(options.body);posts.push(input);
+        return {ok:true,json:async()=>({...input,id:'layer-'+posts.length,status:'queued',outputs:[]})};
+    });
+    runtime.settings.visualIllustrationSource='layers';runtime.settings.visualSpriteWorkflow='sprite_integrated';
+    director.followLayers=async()=>{};
+    await director.request();s.characters.Anna.clothing.costume='new outfit';
+    await new Promise(r=>setTimeout(r,550));
+    assert.equal(context.chatMetadata.narrative_engine_illustration_wait.status,'failed');
+    assert.match(context.chatMetadata.narrative_engine_illustration_wait.reason,/changed/);
+    assert.ok(posts.every(p=>p.operation!=='illustration'));
+    const now=Date.now;
+    try {
+        await director.request();
+        Date.now=()=>now()+700000;
+        await new Promise(r=>setTimeout(r,550));
+        assert.match(context.chatMetadata.narrative_engine_illustration_wait.reason,/Timed out/);
+        assert.ok(posts.every(p=>p.operation!=='illustration'));
+    } finally { Date.now=now; }
+});
+
+
+test('a failed layer stops waiting without a fresh fallback; reload cancels abandoned waiting',async t=>{
+    const posts=[];
+    const {director,runtime,context}=fixture(t,async(_url,options)=>{
+        if(options.method==='GET') return {ok:true,json:async()=>[]};
+        const input=JSON.parse(options.body);posts.push(input);
+        return {ok:true,json:async()=>({...input,id:'failed-layer',status:'failed_final',error:'Missing BiRefNet',outputs:[]})};
+    });
+    runtime.settings.visualIllustrationSource='layers';runtime.settings.visualSpriteWorkflow='sprite_integrated';
+    await director.request();
+    await new Promise(r=>setTimeout(r,20));
+    assert.equal(context.chatMetadata.narrative_engine_illustration_wait.status,'failed');
+    assert.match(context.chatMetadata.narrative_engine_illustration_wait.reason,/Missing BiRefNet/);
+    assert.ok(posts.every(p=>p.operation!=='illustration'));
+    context.chatMetadata.narrative_engine_illustration_wait={ticket:'previous-process',status:'waiting'};
+    await director.resume();
+    assert.equal(context.chatMetadata.narrative_engine_illustration_wait.status,'cancelled');
+});
+
+test('layer source settings survive normalization with bounded refinement and timeout',async()=>{
+    const {normalizeSettings}=await import('../src/settings.js');
+    const defaults=normalizeSettings({});assert.equal(defaults.visualIllustrationSource,'fresh');
+    const settings=normalizeSettings({visualIllustrationSource:'layers',visualLayersNotReady:'fail',visualLayerDenoise:99,visualLayersTimeoutMs:1,visualLayerCamera:'invalid'});
+    assert.equal(settings.visualIllustrationSource,'layers');assert.equal(settings.visualLayersNotReady,'fail');
+    assert.equal(settings.visualLayerDenoise,0.55);assert.equal(settings.visualLayersTimeoutMs,10000);
+    assert.equal(settings.visualLayerCamera,'full body, eye level');
+});
+
+
+test('manual layer button overrides source only for this request and remains publishable',async t=>{
+    let body;
+    const {director,runtime,context}=fixture(t,async(_url,options)=>{
+        if(options.method==='GET')return {ok:true,json:async()=>[]};
+        body=JSON.parse(options.body);
+        return {ok:true,json:async()=>({...body,id:'manual',status:'done',outputs:[{filename:'final.png'}]})};
+    });
+    runtime.settings.visualIllustrationSource='fresh';runtime.settings.visualSpriteWorkflow='sprite_integrated';
+    await readyLayers(director,runtime,context);
+    const job=await director.request({fromLayers:true});
+    await director.follow(job,context,body.chatId,runtime.stateManager);
+    assert.equal(runtime.settings.visualIllustrationSource,'fresh');
+    assert.equal(body.forceLayers,true);assert.equal(body.workflow,'scene_layered');
+    assert.equal(context.chatMetadata.narrative_engine_visual.id,'manual');
+    const {illustrationSource}=await import('../src/visual/illustration.js');
+    const source=await illustrationSource(body.scene,{...runtime.settings,visualIllustrationSource:'layers'},context.chatMetadata.narrative_engine_layers);
+    assert.equal(source.recipeVersion,1);assert.equal(source.layoutVersion,1);
+});
+
+test('30 expression turns keep automatic illustrations within significant-change policy',async t=>{
+    const history=[];
+    const {director,runtime,s}=fixture(t,async(_url,options)=>{
+        if(options.method==='GET')return {ok:true,json:async()=>history};
+        const body=JSON.parse(options.body),job={...body,id:'shot-'+history.length,status:'done',outputs:[{filename:'final.png'}]};
+        history.unshift(job);return {ok:true,json:async()=>job};
+    });
+    runtime.settings.visualIllustrationPolicy='significant';runtime.settings.visualCooldownMs=0;
+    for(let turn=0;turn<30;turn++){
+        s.characters.Anna.expression=turn%2?'happy':'sad';
+        await director.request({automatic:true});
+    }
+    assert.equal(history.length,1);
+});
+
+
+test('30-turn client-to-SQLite story reuses the room and submits only one significant illustration',async t=>{
+    const {createRequire}=await import('node:module');
+    const require=createRequire(new URL('../server-plugin/package.json',import.meta.url));
+    const {Database}=require('./lib/database'),{VisualQueue}=require('./lib/visual'),{PNG}=require('pngjs');
+    const db=new Database({storageRoot:process.cwd(),databasePath:':memory:'}),queue=new VisualQueue({},db);
+    t.after(()=>{queue.close();db.close();});
+    queue.api=async()=>{throw Error('GPU/network forbidden');};
+    let scope;
+    const {director,runtime,s}=fixture(t,async(url,options)=>{
+        if(options.method==='GET')return {ok:true,json:async()=>queue.list(scope)};
+        const body=JSON.parse(options.body);scope=body.chatId;
+        const result=queue.enqueue(scope,body);
+        if(result.status!=='queued')return {ok:true,json:async()=>result};
+        const job=queue.get(scope,result.id,true);
+        queue.transition(job,'running',{promptId:'mock-'+job.id});
+        if(job.operation==='background'){
+            const png=new PNG({width:8,height:8});png.data.fill(255);
+            job.asset=queue.assets.put(job,PNG.sync.write(png));
+        }
+        queue.transition(job,'done',{outputs:[{filename:'mock.png'}]});
+        return {ok:true,json:async()=>queue.get(scope,job.id)};
+    });
+    Object.assign(runtime.settings,{visualCheckpoint:'base.safetensors',visualIllustrationPolicy:'significant',visualCooldownMs:0});
+    for(let turn=0;turn<30;turn++){
+        s.characters.Anna.expression=turn%2?'happy':'sad';
+        await director.request({layers:true});
+        await director.request({automatic:true});
+    }
+    const counts=queue.metrics(scope).counts;
+    assert.equal(counts.background.submitted,1);assert.equal(counts.background.reused,29);
+    assert.equal(counts.illustration.submitted,1);assert.equal(counts.illustration.completed,1);
 });

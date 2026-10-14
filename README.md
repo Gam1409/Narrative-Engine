@@ -258,3 +258,47 @@ Anima settings expose separate diffusion model, text encoder and VAE files, plus
 Local validation: **168 client / 89 server tests** and browser checks of persistence, prompt assignment, graph inspection and narrow layout. No live SillyTavern or GPU acceptance is claimed. See UI verification report.
 
 To configure a custom graph: **Visual Director → Workflows for each image type → Import workflow JSON → Edit inputs and chips → View graph and choose prompt inputs**. Import [the example recipe](server-plugin/examples/importable-illustration.json) to inspect the mapping; replace its example checkpoint with an installed model before generation. Connections are edited in ComfyUI. Source chips use `{{positive}}`, `{{negative}}`, `{{userPositive}}`, and `{{userNegative}}`. The scene chips refer to compiler output, not an unchecked raw LLM response.
+
+The imported-workflow library also provides **Check selected workflow (no generation)**. This refreshes ComfyUI inventory and checks saved graph inputs, links, installed nodes/models and the selected checkpoint. It does not create a job or upload assets. It is not full ComfyUI execution validation: scene-dependent bindings and character LoRAs are checked at generation time. An offline server is reported as unverified.
+
+Workflow-check UI regression coverage: nine browser scenarios use the real UI modules with controlled responses (success, validation failure, offline server, stale settings, overlapping selections, malformed response and disposal). Run the local preview with `node server-plugin/scripts/settings-preview.cjs`; the browser harness is [workflow-check.js](tests/browser/workflow-check.js). These checks do not contact ComfyUI.
+
+### Stable backgrounds (local implementation)
+
+**Background updates** defaults to `location`: reuse the room while movable objects, expressions, pose, clothing, weather or wording of lighting change. Location identity includes its public name/properties and explicitly marked fixtures. Store permanent furniture in the location description or declare an entity parameter `backgroundRole` with value `fixture`; movable objects remain in illustration prompts, not background prompts. Changes to fixture state or public location properties redraw the environment.
+
+`location_atmosphere` additionally waits for stable day/weather buckets (2 distinct accepted turns by default, configurable 1–10). Game `timeline.time` takes precedence; fallback keywords support Russian/English. Default hour boundaries are 05/08/18/21 in `src/visual/background.js`. Lamp/candle lighting selects `indoor`. Unknown buckets preserve the current image and reset pending transitions. `any` reacts to raw lighting/weather changes, still excluding movable objects. **Regenerate background only** bypasses cooldown and changes its sampling seed without submitting sprite jobs.
+
+Public background inputs are frozen together with their resource key in chat metadata. Returning to a cached room reuses the ready asset. Layer key version changes to 6 for backgrounds only, preserving sprite keys. Observation history retains 64 turn states per entry; the ledger retains up to 128 location/configuration entries and 64 variants per entry. Deep rollback outside that retained window reinitializes atmosphere observations.
+
+Legacy migration is conservative: within the same chat, current settings must reproduce a saved old background graph and its location must match. A server alias preserves the verified asset without GPU work. It examines up to 1000 recent completed background jobs. Compacted/missing graphs cannot establish equivalence and may require a new background. Reused legacy images can contain old objects; manual regeneration replaces them with the new object-free policy. This is partial migration acceptance, not a guarantee of zero generation for every old chat.
+
+Local tests cover 30 changes → one background job, A → B → A reuse, hysteresis, unknown values, rollback/reload, private-state exclusion, manual refresh and scoped migration. No live GPU or full SillyTavern acceptance was performed. Composition preview is implemented below; layer-guided illustrations are being added in separate stages.
+
+### Composition preview (no GPU)
+
+Open **Visual novel scene**, then choose **View → Composition preview (no GPU)**. Ready background and current sprite assets are drawn on a canvas at the background's native aspect ratio, retaining transparency. One character is centered; two use left/right slots in scene order. Preview framing offers full body, medium and wide views without changing generation settings or canon. Medium framing can crop the lower body; broad sprites are width-limited without stretching.
+
+Missing/stale layers, changed canon or more than two characters block composite preview. The ordinary VN layer viewer remains available. This is a placement preview, not a generated illustration: lighting, perspective, foreground occlusion and anatomy are not repaired. The server layer-guided recipe uses the same versioned layout contract; browser/server parity is tested.
+
+
+### Layer-guided illustration: server foundation
+
+The built-in `scene_layered` API recipe now composes a saved background and up to two transparent sprites, saves the composite at node 901, then refines the complete frame at denoise 0.45 (allowed 0.35–0.55). Two-character identity passes use separate LoRA branches and each sprite's alpha mask placed on the canvas. Only node 900 is the final output. The detail/upscale pass cannot yet be combined with this recipe.
+
+References are asset IDs plus expected resource keys from the same chat. The server resolves filenames and layout, preserves PNG bytes on upload to the selected ComfyUI endpoint and checks installed nodes/models before submitting a prompt. Missing/wrong references fail explicitly; there is no implicit fresh-image fallback. See the [API contract](server-plugin/examples/visual-layers.md#layer-guidance-server-api).
+
+**Illustration continuity** now exposes three sources: fresh (default), current layers, or layers with an explicit fresh fallback. Layer mode uses the dedicated built-in recipe; the selected illustration/partial workflow and optional conditioning stages apply only to fresh generation. Choose a background workflow and a transparent sprite workflow before requesting character layers.
+
+For strict layers, **Missing layers** either fails immediately or builds missing layers asynchronously (120 seconds by default, adjustable 10–600 seconds). Ready layers are reused. Changes to scene/canon, settings or planned layer identities cancel waiting. A reload cancels a waiting request; request it again explicitly. The VN viewer displays waiting/error status. Failed layers or timeout do not silently trigger a fresh image; only the explicitly selected fallback mode permits it, records the reason and shows it in job/gallery metadata.
+
+Before submission and publication, the client checks current reference IDs/keys along with scene and settings. Changing a background manually, changing clothes or replacing a sprite prevents the old result from becoming current. Local tests cover these contracts; live quality, clothing preservation, lighting and occlusion still require GPU acceptance.
+
+
+### Visual task diagnostics
+
+**Visual task counters (no GPU)** reads SQLite for the current authenticated chat. Background, sprite, illustration and local-expression rows distinguish non-cache jobs, submission attempts, completions, final failures and cache hits. Ambiguous submissions count as attempts; these are not GPU seconds or money. Cache events are deduplicated by request key and counted from feature installation; historical cache hits cannot be reconstructed.
+
+**Illustration from current layers** makes a strict manual layer request without changing the saved source mode. Readiness/wait rules still apply. Results expose `guided`, reference IDs and `reason` for fresh images (existing source/fallback fields remain compatible). Client generation keys include recipe and layout version 1.
+
+Local acceptance includes a 30-turn client-to-SQLite run: one background submission, 29 cache hits and one significant illustration, with all GPU responses simulated. A typed core-node inventory accepts the complete guided graph; missing dependencies remain rejected. Actual ComfyUI rendering and SillyTavern acceptance are still pending.

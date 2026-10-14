@@ -1,3 +1,5 @@
+import { illustrationSource, MissingIllustrationLayers } from './illustration.js';
+import { prepareBackground } from './background.js';
 import { selectedRecipe } from './workflows.js';
 import { VisualIntentPlanner } from './intent.js';
 import { illustrationMilestone } from './cadence.js';
@@ -20,6 +22,7 @@ export class VisualDirector {
         this.lastScene = null;
         this.waiters = new Map();
         this.submissions = Promise.resolve();
+        this.backgroundPlanning = Promise.resolve();
         this.lastAutomaticAt = 0;
         this.deferred = null;
     }
@@ -53,9 +56,10 @@ export class VisualDirector {
         return profile;
     }
 
-    async scene() {
+    async scene({intent = true, forceBackground = false} = {}) {
         const runtime = this.runtime,
             manager = runtime.stateManager;
+        const context = getContext(), fingerprint = getChatFingerprint(context), head = manager.state;
         const state = manager.snapshot();
         const tail = manager.deltas.findLast((d) => d.source !== 'author' && d.messageIndex >= 0);
         const scene = await describeScene(
@@ -66,7 +70,23 @@ export class VisualDirector {
             tail?.messageRef || null,
         );
         scene.canonVersion = manager.canonVersion || 0;
-        return runtime.settings.visualLlmIntent
+        const planning = this.backgroundPlanning.then(async () => {
+            const active = () => manager === runtime.stateManager && manager.state === head && getChatFingerprint(getContext()) === fingerprint && !this.closed;
+            if (!active()) throw Error('Scene changed while planning background');
+            const prepared = await prepareBackground(scene, runtime.settings, context.chatMetadata?.narrative_engine_backgrounds, {
+                turns: manager.deltas.filter(d => d.source !== 'author' && d.messageIndex >= 0).map(d => d.deltaId || d.idempotencyKey).filter(Boolean),
+                force: forceBackground,
+            });
+            if (!active()) throw Error('Scene changed while planning background');
+            context.chatMetadata ||= {};
+            context.chatMetadata.narrative_engine_backgrounds = prepared.ledger;
+            return prepared;
+        });
+        this.backgroundPlanning = planning.then(() => {}, () => {});
+        const prepared = await planning;
+        scene.background = prepared.background;
+        scene.backgroundId = prepared.background.id;
+        return intent && runtime.settings.visualLlmIntent
             ? this.intentPlanner.prepare(scene, runtime.provider, runtime.settings.visualPromptProfile, manager.prefix, runtime.diagnostics)
             : scene;
     }
@@ -89,6 +109,14 @@ export class VisualDirector {
         return this.api('capabilities', { endpoint: this.runtime.settings.visualEndpoint });
     }
 
+    checkWorkflow(item) {
+        return this.api('check-workflow', {
+            workflow: item.id, customRecipe: item.recipe, operation: item.recipe.operation,
+            endpoint: this.runtime.settings.visualEndpoint,
+            checkpoint: this.runtime.settings.visualCheckpoint,
+        });
+    }
+
     matches(job, scene) {
         const manager = this.runtime.stateManager,
             key = job.scene.messageRef?.idempotencyKey;
@@ -101,7 +129,8 @@ export class VisualDirector {
         return !record || latestStatus(manager.decisions || [], record.deltaId) === 'confirmed';
     }
 
-    async generationKey(scene, workflow, settings) {
+    async generationKey(scene, workflow, settings, forceLayers = false) {
+        if (forceLayers) settings = {...settings, visualIllustrationSource:'layers'};
         return textHash(
             canonicalStringify({
                 scene: scene.sceneId,
@@ -118,6 +147,10 @@ export class VisualDirector {
                 composition: {style: settings.visualStyle || '', camera: settings.visualCamera || scene.visualCamera || ''},
                 modelFiles: {textEncoder: settings.visualTextEncoder || '', vae: settings.visualVae || ''},
                 userPositive: settings.visualPositive || '', userNegative: settings.visualNegative || '',
+                ...(settings.visualIllustrationSource && settings.visualIllustrationSource !== 'fresh' ? {
+                    illustrationSource: settings.visualIllustrationSource,
+                    guidance: await illustrationSource(scene, settings, getContext().chatMetadata?.narrative_engine_layers),
+                } : {}),
                 compiler: 4,
             }),
         );
@@ -129,7 +162,7 @@ export class VisualDirector {
         return task;
     }
 
-    async submit({ automatic = false, layers = false, resumeOnly = false } = {}) {
+    async submit({ automatic = false, layers = false, resumeOnly = false, backgroundOnly = false, forceBackground = false, illustrationTicket = null, fromLayers = false } = {}) {
         const runtime = this.runtime,
             context = getContext(),
             fingerprint = getChatFingerprint(context);
@@ -139,8 +172,13 @@ export class VisualDirector {
         if (!runtime.settings.visualEnabled) return { skipped: 'Visual generation is disabled' };
         if (manager.pending.length) return { skipped: 'World state is pending reconciliation' };
         const settings = structuredClone(runtime.settings);
+        if (fromLayers) settings.visualIllustrationSource = 'layers';
+        // Observe each accepted turn before cooldown; reads/polls never count as new turns.
+        const backgroundScene = await this.scene({intent:false, forceBackground});
+        if (!active()) return { skipped: 'Scene changed' };
+        await context.saveMetadata?.();
         const cooldown = Math.max(0, settings.visualCooldownMs ?? 15000);
-        if (automatic && Date.now() - this.lastAutomaticAt < cooldown) {
+        if (automatic && !illustrationTicket && Date.now() - this.lastAutomaticAt < cooldown) {
             if (!this.deferred) {
                 this.deferred = setTimeout(
                     () => {
@@ -156,16 +194,29 @@ export class VisualDirector {
             }
             return { skipped: 'Latest scene deferred until cooldown ends' };
         }
-        const scene = await this.scene();
+        const scene = backgroundOnly ? backgroundScene : await this.scene();
         if (!active()) return { skipped: 'Scene changed' };
-        if (layers || (automatic && settings.visualLayers)) {
+        if (layers || backgroundOnly || (automatic && !illustrationTicket && settings.visualLayers)) {
             if (automatic) this.lastAutomaticAt = Date.now();
-            return this.submitLayers(scene, settings, context, fingerprint, manager, active, { automatic, resumeOnly });
+            return this.submitLayers(scene, settings, context, fingerprint, manager, active, { automatic, resumeOnly, backgroundOnly });
         }
         if (automatic && settings.visualIllustrationPolicy === 'manual')
             return { skipped: 'Illustrations are manual only' };
+        if (illustrationTicket && this.illustrationTicket !== illustrationTicket)
+            return {skipped: 'Illustration request superseded'};
+        const ticket = illustrationTicket || crypto.randomUUID();
+        this.illustrationTicket = ticket;
+        if (!illustrationTicket) delete context.chatMetadata.narrative_engine_illustration_wait;
+        let source;
+        try {
+            source = await illustrationSource(scene, settings, context.chatMetadata.narrative_engine_layers);
+        } catch (error) {
+            if (!(error instanceof MissingIllustrationLayers) || settings.visualLayersNotReady === 'fail' || illustrationTicket)
+                throw error;
+            return this.deferIllustration(scene, settings, context, fingerprint, manager, active, automatic, ticket, fromLayers);
+        }
         const history = await this.api(`jobs/${fingerprint}`);
-        if (automatic && settings.visualIllustrationPolicy === 'significant') {
+        if (automatic && settings.visualIllustrationPolicy === 'significant' && source.source === 'fresh' && !source.fallbackReason) {
             const latest = history.find((job) => job.status !== 'cancelled' &&
                 (!job.operation || job.operation === 'illustration') &&
                 (job.endpointSelection || '') === (settings.visualEndpoint || ''));
@@ -180,7 +231,7 @@ export class VisualDirector {
                 job.scene.location.id === scene.location.id &&
                 (job.endpointSelection || '') === (settings.visualEndpoint || ''),
         );
-        const workflow = settings.visualPartial && prior ? settings.visualPartialWorkflow : settings.visualWorkflow;
+        const workflow = source.source === 'layers' ? 'scene_layered' : settings.visualPartial && prior ? settings.visualPartialWorkflow : settings.visualWorkflow;
         if (!workflow) throw new Error('Choose a configured visual workflow');
         const generationKey = await this.generationKey(scene, workflow, settings);
         if (
@@ -195,7 +246,7 @@ export class VisualDirector {
             return { skipped: 'Scene already requested' };
         }
         if (!active() || !this.matches({ scene }, await this.scene())) return { skipped: 'Scene changed' };
-        const currentKey = await this.generationKey(scene, workflow, runtime.settings);
+        const currentKey = await this.generationKey(scene, workflow, runtime.settings, fromLayers);
         if (currentKey !== generationKey) return { skipped: 'Visual settings changed' };
         scene.changesSincePrevious = ['location', 'characters', 'keyObjects'].filter(
             (key) => canonicalStringify(scene[key]) !== canonicalStringify(prior?.scene?.[key]),
@@ -207,7 +258,12 @@ export class VisualDirector {
         const selectionId = crypto.randomUUID();
         context.chatMetadata.narrative_engine_visual_selection = selectionId;
         await context.saveMetadata?.();
-        if (!active()) return { skipped: 'Scene changed' };
+        const finalHead = manager.state;
+        const finalScene = await this.scene();
+        if (!active() || this.illustrationTicket !== ticket || manager.pending.length || manager.state !== finalHead ||
+            !this.matches({scene}, finalScene) || generationKey !== await this.generationKey(finalScene, workflow, runtime.settings, fromLayers))
+            return {skipped: 'Scene, references or settings changed'};
+        if (!active() || manager.state !== finalHead || manager.pending.length) return {skipped: 'Scene changed'};
         const job = await this.api('jobs', {
             chatId: fingerprint,
             requestKey,
@@ -218,7 +274,11 @@ export class VisualDirector {
             customRecipe: selectedRecipe(settings, workflow),
             scene,
             seed,
-            stages: settings.visualStages,
+            stages: source.source === 'layers' ? {} : settings.visualStages,
+            forceLayers: fromLayers,
+            illustrationSource: source.source,
+            fallbackReason: source.fallbackReason || null,
+            ...(source.source === 'layers' ? {layerReferences: source.layerReferences, layerCamera: source.layerCamera, layerDenoise: source.layerDenoise} : {}),
             endpoint: settings.visualEndpoint || '',
             checkpoint: settings.visualCheckpoint || '',
             promptProfile: settings.visualPromptProfile || 'sdxl',
@@ -239,7 +299,56 @@ export class VisualDirector {
         return job;
     }
 
-    async submitLayers(scene, settings, context, fingerprint, manager, active, { automatic = false, resumeOnly = false } = {}) {
+    async deferIllustration(scene, settings, context, fingerprint, manager, active, automatic, ticket, fromLayers = false) {
+        if (scene.characters.length && !settings.visualSpriteWorkflow)
+            throw Error('Choose a transparent sprite workflow before waiting for character layers');
+        context.chatMetadata.narrative_engine_visual_selection = ticket;
+        const deadline = Date.now() + Math.max(10000, Math.min(600000, settings.visualLayersTimeoutMs ?? 120000));
+        const initialPlans = await planLayers(scene, settings);
+        const signature = canonicalStringify([settings, initialPlans.map(plan => plan.layerKey)]);
+        const setStatus = async (status, reason = '') => {
+            if (!active() || this.illustrationTicket !== ticket) return;
+            context.chatMetadata.narrative_engine_illustration_wait = {ticket, status, reason, deadline};
+            await context.saveMetadata?.();
+        };
+        await setStatus('waiting', 'Building missing scene layers');
+        await this.submitLayers(scene, settings, context, fingerprint, manager, active, {automatic, missingOnly:true});
+        const run = async () => {
+            while (active() && this.illustrationTicket === ticket) {
+                if (Date.now() >= deadline) throw Error('Timed out waiting for illustration layers');
+                const now = await this.scene();
+                const plans = await planLayers(now, this.runtime.settings);
+                if (!this.runtime.settings.visualEnabled || manager.pending.length || !this.matches({scene}, now) ||
+                    signature !== canonicalStringify([fromLayers ? {...this.runtime.settings,visualIllustrationSource:'layers'} : this.runtime.settings, plans.map(plan => plan.layerKey)]))
+                    throw Error('Scene or settings changed while waiting for layers');
+                try {
+                    await illustrationSource(now, settings, context.chatMetadata.narrative_engine_layers);
+                    await setStatus('ready');
+                    // The original request has returned; serialize the resumed submission with new user requests.
+                    const job = await this.request({automatic, illustrationTicket:ticket, fromLayers});
+                    await setStatus(job.skipped ? 'cancelled' : job.status === 'failed_final' ? 'failed' : 'submitted', job.skipped || job.error || '');
+                    return;
+                } catch (error) {
+                    if (!(error instanceof MissingIllustrationLayers)) throw error;
+                    const failed = context.chatMetadata.narrative_engine_layers?.layers?.find(layer => ['failed_final','cancelled'].includes(layer.status));
+                    if (failed) throw Error(failed.error || 'A required illustration layer failed');
+                }
+                await new Promise(resolve => {
+                    const timer = setTimeout(() => {this.waiters.delete(timer); resolve();}, 500);
+                    timer.unref?.();
+                    this.waiters.set(timer, resolve);
+                });
+            }
+        };
+        // Do not hold the submission queue or the story turn while layers are generated.
+        queueMicrotask(() => run().catch(async error => {
+            await setStatus('failed', error.message);
+            this.runtime.diagnostics.error(error, 'visual');
+        }));
+        return {status:'waiting', operation:'illustration', deadline, message:'Waiting for current background and sprites'};
+    }
+
+    async submitLayers(scene, settings, context, fingerprint, manager, active, { automatic = false, resumeOnly = false, backgroundOnly = false, missingOnly = false } = {}) {
         const requestedAt = Date.now();
         const plans = await planLayers(scene, settings);
         const token = crypto.randomUUID();
@@ -258,7 +367,7 @@ export class VisualDirector {
                 manager.state === head &&
                 this.matches({ scene }, now) &&
                 context.chatMetadata.narrative_engine_layers_selection === token &&
-                canonicalStringify(plans) === canonicalStringify(nextPlans)
+                canonicalStringify(plans.map(p=>p.layerKey)) === canonicalStringify(nextPlans.map(p=>p.layerKey))
             );
         };
         context.chatMetadata.narrative_engine_layers_selection = token;
@@ -271,7 +380,7 @@ export class VisualDirector {
                     layer.status === 'done' &&
                     layer.assetId,
             );
-            return prior ? { status: 'done', asset: { id: prior.assetId } } : { status: 'requested' };
+            return prior ? { status: 'done', asset: { id: prior.assetId, resourceKey: prior.resourceKey } } : { status: 'requested' };
         });
         const publish = async () => {
             const head = manager.state;
@@ -304,6 +413,8 @@ export class VisualDirector {
         // Remove incompatible old sprites immediately; no old costume is used as a placeholder.
         if (!(await publish())) return { skipped: 'Scene changed' };
         for (const [index, plan] of plans.entries()) {
+            if (missingOnly && jobs[index].status === 'done' && jobs[index].asset?.resourceKey) continue;
+            if (backgroundOnly && plan.operation !== 'background') continue;
             if (!(await current())) return { skipped: 'Scene changed' };
             try {
                 jobs[index] = await this.api('jobs', {
@@ -326,7 +437,7 @@ export class VisualDirector {
     async followLayers(jobs, publish, current) {
         for (let count = 0; count < 600 && !this.closed; count++) {
             if (!(await current())) return;
-            const pending = jobs.filter((job) => !TERMINAL.has(job.status));
+            const pending = jobs.filter((job) => job.id && !TERMINAL.has(job.status));
             if (!pending.length) return;
             await new Promise((resolve) => {
                 const timer = setTimeout(() => {
@@ -364,11 +475,10 @@ export class VisualDirector {
                 if (!active() || !this.matches(job, current)) return;
                 if (job.selectionId && context.chatMetadata.narrative_engine_visual_selection !== job.selectionId)
                     return;
-                if (
-                    job.generationKey &&
-                    job.generationKey !== (await this.generationKey(current, job.workflow, runtime.settings))
-                )
-                    return;
+                if (!runtime.settings.visualEnabled) return;
+                try {
+                    if (job.generationKey && job.generationKey !== await this.generationKey(current, job.workflow, runtime.settings, job.forceLayers)) return;
+                } catch { return; } // Missing/stale layers are a normal reason not to publish.
                 if (!active() || manager.state !== stateHead || manager.pending.length) return;
                 if (job.selectionId && context.chatMetadata.narrative_engine_visual_selection !== job.selectionId)
                     return;
@@ -412,12 +522,24 @@ export class VisualDirector {
     async jobs() {
         const fingerprint = getChatFingerprint(getContext()),
             scene = await this.scene();
-        return (await this.api(`jobs/${fingerprint}`)).map((job) =>
-            this.result(job, !this.matches(job, scene), fingerprint),
-        );
+        return Promise.all((await this.api(`jobs/${fingerprint}`)).map(async job => {
+            let stale = !this.matches(job, scene);
+            if (!stale && job.generationKey && (!job.operation || job.operation === 'illustration')) {
+                try { stale = job.generationKey !== await this.generationKey(scene, job.workflow, this.runtime.settings, job.forceLayers); }
+                catch { stale = true; }
+            }
+            return this.result(job, stale, fingerprint);
+        }));
     }
 
     async resume() {
+        const resumeContext = getContext();
+        const waiting = resumeContext.chatMetadata?.narrative_engine_illustration_wait;
+        if (waiting?.status === 'waiting' && waiting.ticket !== this.illustrationTicket) {
+            waiting.status = 'cancelled';
+            waiting.reason = 'Waiting interrupted by reload; request the illustration again';
+            await resumeContext.saveMetadata?.();
+        }
         if (this.runtime.settings.visualEnabled && this.runtime.settings.visualLayers)
             return this.request({ layers: true, automatic: this.runtime.settings.visualAutomatic === true, resumeOnly: !this.runtime.settings.visualAutomatic });
         const runtime = this.runtime,

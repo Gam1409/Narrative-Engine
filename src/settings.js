@@ -12,6 +12,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
     showInternalState: false,
     visualUserWorkflows: [], visualAnimaVariant: 'base', visualPositive: '', visualNegative: '',
     visualIllustrationPolicy: 'significant',
+    visualIllustrationSource: 'fresh', visualLayersNotReady: 'wait', visualLayersTimeoutMs: 120000,
+    visualLayerCamera: 'full body, eye level', visualLayerDenoise: 0.45,
+    visualBackgroundPolicy: 'location', visualBackgroundHysteresis: 2,
     visualLlmIntent: false, visualLocalExpressions: false, visualFaceDetector: '',
     visualLayers: false, visualBackgroundWorkflow: 'background', visualSpriteWorkflow: '',
     visualEndpoint: '', visualCheckpoint: '', visualPromptProfile: 'sdxl', visualCooldownMs: 15000,
@@ -92,6 +95,13 @@ export function normalizeSettings(candidate = {}) {
     merged.visualCheckpoint = String(merged.visualCheckpoint || '').trim().slice(0, 500);
     merged.visualPromptProfile = ['sdxl', 'pony', 'illustrious', 'anima'].includes(merged.visualPromptProfile) ? merged.visualPromptProfile : 'sdxl';
     merged.visualIllustrationPolicy = ['significant', 'all', 'manual'].includes(merged.visualIllustrationPolicy) ? merged.visualIllustrationPolicy : 'significant';
+    merged.visualIllustrationSource = ['fresh','layers','layers_or_fresh'].includes(merged.visualIllustrationSource) ? merged.visualIllustrationSource : 'fresh';
+    merged.visualLayersNotReady = merged.visualLayersNotReady === 'fail' ? 'fail' : 'wait';
+    merged.visualLayersTimeoutMs = clampNumber(merged.visualLayersTimeoutMs, 10000, 600000, 120000);
+    merged.visualLayerDenoise = clampNumber(merged.visualLayerDenoise, 0.35, 0.55, 0.45);
+    merged.visualLayerCamera = ['full body, eye level','medium shot, eye level','wide shot, eye level'].includes(merged.visualLayerCamera) ? merged.visualLayerCamera : 'full body, eye level';
+    merged.visualBackgroundPolicy = ['location','location_atmosphere','any'].includes(merged.visualBackgroundPolicy) ? merged.visualBackgroundPolicy : 'location';
+    merged.visualBackgroundHysteresis = Math.floor(clampNumber(merged.visualBackgroundHysteresis, 1, 10, 2));
     merged.visualCooldownMs = clampNumber(merged.visualCooldownMs, 1000, 300000, 15000);
     merged.visualStages=Object.fromEntries(['controlnet','ipadapter','mask'].map(k=>[k,merged.visualStages?.[k]===true]));
     merged.embeddingSearch = merged.embeddingSearch === true;

@@ -310,11 +310,16 @@
           <input type="file" accept=".json,application/json" data-workflow-file hidden>
           <button type="button" class="menu_button" data-workflow-import>Import workflow JSON</button>
           <label class="ne-field">Saved workflows<select data-workflow-library></select></label>
-          <div class="ne-action-list"><button type="button" class="menu_button" data-workflow-edit disabled>Edit inputs and chips</button><button type="button" class="menu_button" data-workflow-export disabled>Export selected</button><button type="button" class="menu_button" data-workflow-remove disabled>Remove selected</button></div>
+          <div class="ne-action-list"><button type="button" class="menu_button" data-workflow-edit disabled>Edit inputs and chips</button><button type="button" class="menu_button" data-workflow-check disabled>Check selected workflow (no generation)</button><button type="button" class="menu_button" data-workflow-export disabled>Export selected</button><button type="button" class="menu_button" data-workflow-remove disabled>Remove selected</button></div>
           <p data-workflow-notice role="status" class="ne-help">No server check is required to import a file.</p>
         </div>
         </div></details>
-        <details class="ne-visual-group"><summary>3. Automatic updates and GPU usage</summary><div class="ne-fields">
+        <details class="ne-visual-group"><summary>3. Automatic updates and GPU usage</summary>
+          <label class="ne-field">Background updates<select data-setting="visualBackgroundPolicy"><option value="location">Location and permanent environment only</option><option value="location_atmosphere">Location and stable time / weather changes</option><option value="any">Every lighting / weather change</option></select></label>
+          <label class="ne-field">Stable atmosphere: accepted turns<input type="number" min="1" max="10" step="1" data-setting="visualBackgroundHysteresis"></label>
+          <p class="ne-help">Movable objects never redraw the room. Put permanent furniture in the location description, or mark its entity parameter backgroundRole as fixture. Manual regeneration replaces the current background.</p>
+          <button type="button" class="menu_button" data-action="regenerateBackground" data-requires-visual>Regenerate background only</button>
+<div class="ne-fields">
         <label class="ne-field">Automatic illustrations <select class="text_pole" data-setting="visualIllustrationPolicy"><option value="significant">Location, cast, wardrobe or object changes</option><option value="all">Every visual change</option><option value="manual">Manual only</option></select></label>
         <small>Layer mode updates cached backgrounds and sprites independently. Full illustrations remain available on demand. Failed automatic layers wait for a manual retry or changed inputs.</small>
         <label class="ne-check"><input type="checkbox" data-setting="visualAutomatic"> Generate when the visual scene changes</label>
@@ -340,8 +345,18 @@
         <label class="ne-check"><input type="checkbox" data-setting="visualStages.ipadapter"> IPAdapter: preserve appearance</label>
         <label class="ne-check"><input type="checkbox" data-setting="visualStages.mask"> Mask: limit updated region</label>
         </div></details>
+        <details class="ne-visual-group"><summary>5. Illustration continuity</summary><div class="ne-fields">
+        <label class="ne-field">Illustration source <select class="text_pole" data-setting="visualIllustrationSource"><option value="fresh">Generate a new composition</option><option value="layers">Use current background and sprites</option><option value="layers_or_fresh">Use layers, or explicitly fall back to a new composition</option></select></label>
+        <label class="ne-field">Missing layers <select class="text_pole" data-setting="visualLayersNotReady"><option value="wait">Build missing layers and wait</option><option value="fail">Stop with an error</option></select></label>
+        <label class="ne-field">Wait limit (milliseconds) <input class="text_pole" type="number" min="10000" max="600000" step="1000" data-setting="visualLayersTimeoutMs"></label>
+        <label class="ne-field">Layer framing <select class="text_pole" data-setting="visualLayerCamera"><option>full body, eye level</option><option>medium shot, eye level</option><option>wide shot, eye level</option></select></label>
+        <label class="ne-field">Layer refinement strength <input class="text_pole" type="number" min="0.35" max="0.55" step="0.01" data-setting="visualLayerDenoise"></label>
+        <p class="ne-help">Layers use a dedicated recipe with up to two characters. Configure a background and transparent sprite workflow first. Waiting runs in the background; scene changes cancel it. The fallback option generates a fresh image immediately if layers are unavailable. Refinement can change clothing details; image quality still needs testing.</p>
+        </div></details>
         <div class="ne-action-list ne-visual-actions">
         <button type="button" class="menu_button" data-action="requestIllustration" data-requires-visual data-viewer-title="Illustration request">Generate illustration</button>
+        <button type="button" class="menu_button" data-action="requestLayerIllustration" data-requires-visual data-viewer-title="Layer illustration request">Illustration from current layers</button>
+        <button type="button" class="menu_button" data-action="visualMetrics" data-viewer-title="Visual task counters">Visual task counters (no GPU)</button>
         <button type="button" class="menu_button" data-action="requestVisualLayers" data-requires-visual>Build background and sprites</button>
         <button type="button" class="menu_button" data-action="viewVisualLayers">Open visual novel scene</button>
         <button type="button" class="menu_button" data-action="viewVisualJobs" data-viewer-title="Visual jobs and current images">View images and jobs</button>

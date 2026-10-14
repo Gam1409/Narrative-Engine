@@ -1,9 +1,11 @@
+import { prepareBackground } from './background.js';
 import { selectedRecipe } from './workflows.js';
 import { canonicalStringify } from '../utils/object.js';
 import { textHash } from '../memory/semantic.js';
 
 /** Resource scenes contain exactly the inputs used by their own compiler. */
 export async function planLayers(scene, settings) {
+    const background = scene.background || (await prepareBackground(scene,settings)).background;
     const common = {
         endpoint: settings.visualEndpoint || '',
         userPositive: settings.visualPositive || '', userNegative: settings.visualNegative || '',
@@ -18,14 +20,11 @@ export async function planLayers(scene, settings) {
             slot: 'background',
             operation: 'background',
             workflow: settings.visualBackgroundWorkflow || 'background',
-            resourceInput: scene.backgroundId,
-            scene: {
-                sceneId: scene.backgroundId,
-                location: scene.location,
-                keyObjects: scene.keyObjects,
-                characters: [],
-                preserve: ['location.layout'],
-            },
+            resourceInput: background.id,
+            backgroundDecision: background.reason,
+            backgroundPolicy: background.policy,
+            backgroundManual: background.manual,
+            scene: background.scene,
         },
     ];
     if (settings.visualSpriteWorkflow) {
@@ -66,7 +65,7 @@ export async function planLayers(scene, settings) {
                     localExpressions: layer.operation === 'sprite' && settings.visualLocalExpressions === true,
                     faceDetector: layer.operation === 'sprite' ? settings.visualFaceDetector || '' : '',
                     userPositive: common.userPositive, userNegative: common.userNegative,
-                    version: 5,
+                    version: layer.operation === 'background' ? 6 : 5,
                 }),
             );
             // Pose/emotion changes invalidate the resource, but keep the character's sampling seed stable.
@@ -101,7 +100,9 @@ export function composeLayers(scene, plans, jobs, chatId) {
                 error: job?.error || null,
                 anchorWarning: job?.anchorWarning || null,
                 timing: job?.timing || null,
+                backgroundDecision: plan.operation === 'background' ? (job?.backgroundDecision?.startsWith('reused') ? job.backgroundDecision : job?.reused ? 'reused cached (same background inputs)' : plan.backgroundDecision) : null,
                 assetId: job?.status === 'done' ? job.asset?.id || null : null,
+                resourceKey: job?.status === 'done' ? job.asset?.resourceKey || null : null,
                 url: job?.status === 'done' && job.asset?.id ? assetUrl(chatId, job.asset.id) : null,
             };
         }),

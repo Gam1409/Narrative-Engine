@@ -48,6 +48,43 @@
     "visualCamera": {
       "type": "string",
       "maxLength": 300
+    },
+    "backgroundFixtures": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "visualTime": {
+      "type": "string"
+    },
+    "background": {
+      "type": "object",
+      "required": [
+        "id",
+        "scene",
+        "policy",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scene": {
+          "type": "object"
+        },
+        "policy": {
+          "enum": [
+            "location",
+            "location_atmosphere",
+            "any"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
     }
   },
   "additionalProperties": false
