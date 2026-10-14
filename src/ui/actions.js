@@ -1,3 +1,6 @@
+import { editVisualAnchor } from './visualAnchor.js';
+import { showVisualStage } from './visualStage.js';
+import { editVisualCard } from './visualCard.js';
 import { inspectionState, inspectionPacket } from '../state/simulationContext.js';
 import { clearPromptCache } from '../director/promptLoader.js';
 import { clearStatePromptCache } from '../director/statePrompts.js';
@@ -28,6 +31,11 @@ export function subsystemStatus(runtime) {
 
 export function createUiActions(runtime) {
     return {
+        requestVisualLayers: async () => runtime.visualDirector.request({layers:true}),
+        viewVisualLayers: async () => showVisualStage(runtime),
+        visualCapabilities: async () => runtime.visualDirector.capabilities(),
+        editVisualCard: async () => editVisualCard(runtime),
+        editVisualAnchor: async () => editVisualAnchor(runtime),
         describeVisualScene: async () => runtime.describeVisualScene(),
         requestIllustration: async () => runtime.requestIllustration(),
         viewVisualJobs: async () => {const jobs=await runtime.visualJobs();return {jobs,visualGallery:jobs.filter(j=>j.status==='done'&&!j.stale).flatMap(j=>j.images.map(url=>({url,caption:`${j.workflow} - seed ${j.seed}`})))};},

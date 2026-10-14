@@ -59,6 +59,7 @@ export class SpriteManifestStore {
         const mood = Array.isArray(characterState.mood) ? characterState.mood[0] : characterState.mood;
         return filterSpriteCandidates((this.entries.get(character) || []).filter(e=>(!profile?.emotionSet?.length || !e.expression || profile.emotionSet.includes(e.expression)) && (!profile?.poseSet?.length || !e.pose || profile.poseSet.includes(e.pose))), {
             character,
+            wardrobeSignature: visual.wardrobeSignature,
             costume: (typeof visual.outfit==='string' ? visual.outfit : '') || '',
             expression: visual.emotion || (typeof mood==='string' ? mood : '') || '',
             pose: visual.pose || '',

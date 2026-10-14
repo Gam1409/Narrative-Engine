@@ -271,24 +271,86 @@
             </div>
         </details>
 
-    <details class="ne-section">
-        <summary>Visual Director</summary>
-        <p>Generate from accepted scene state. Server workflows must be configured; images do not change world state.</p>
-        <label class="ne-field"><input type="checkbox" data-setting="visualEnabled"> Enable image generation</label>
-        <label class="ne-field"><input type="checkbox" data-setting="visualAutomatic"> Generate when the visual scene changes</label>
-        <label class="ne-field"><input type="checkbox" data-setting="visualKeepSeed"> Reuse the last successful scene seed</label>
-        <label class="ne-field">Full workflow <input class="text_pole" data-setting="visualWorkflow"></label>
-        <label class="ne-field"><input type="checkbox" data-setting="visualPartial"> Use a partial-update workflow after a successful image</label>
+    <details class="ne-spine__section ne-visual-settings ne-lower-section">
+        <summary><span class="ne-spine__node" aria-hidden="true"></span><span><strong>Visual Director</strong><small>Images, workflows and generation controls</small></span><span class="ne-disclosure" aria-hidden="true"></span></summary>
+        <div class="ne-visual-content">
+        <label class="ne-check"><input type="checkbox" data-setting="visualEnabled"> Enable image generation</label>
+        <p class="ne-visual-status" data-visual-mode role="status"></p>
+        <details class="ne-visual-group" open><summary>1. Connection and model</summary><div class="ne-fields">
+        <label class="ne-field">ComfyUI address <input class="text_pole" type="url" data-setting="visualEndpoint" placeholder="https://your-current-comfy-server"></label>
+        <small>Leave empty to use the server configuration. Existing jobs keep their original server.</small>
+        <label class="ne-field"><span data-model-label>Checkpoint filename</span> <input class="text_pole" data-setting="visualCheckpoint" placeholder="novaOrangeXL_rexV10.safetensors"></label>
+        <label class="ne-field">Prompt profile <select class="text_pole" data-setting="visualPromptProfile">
+            <option value="sdxl">SDXL</option><option value="pony">Pony</option><option value="illustrious">Illustrious</option><option value="anima">Anima</option>
+        </select></label>
+        <div data-anima-only class="ne-fields">
+        <label class="ne-field">Anima variant<select class="text_pole" data-setting="visualAnimaVariant"><option value="base">Base / Preview — 30 steps, CFG 4</option><option value="aesthetic">Aesthetic — 30 steps, CFG 4</option><option value="turbo">Turbo — 10 steps, CFG 1</option></select></label>
+        <label class="ne-field" data-anima-only>Anima text encoder <input class="text_pole" data-setting="visualTextEncoder" placeholder="qwen_3_06b_base.safetensors"></label>
+        <label class="ne-field" data-anima-only>Anima VAE <input class="text_pole" data-setting="visualVae" placeholder="qwen_image_vae.safetensors"></label>
+        <p class="ne-help">Anima uses separate diffusion model, text encoder and VAE files. Variant settings apply to built-in Anima/integrated workflows; imported recipes keep their own sampler settings.</p>
+        <button type="button" class="menu_button" data-anima-preset>Use built-in Anima workflows for all three image types</button>
+        <small>This replaces the three workflow selections, but does not enable automatic generation or download models. Transparent sprites also require BiRefNet.</small>
+        </div>
+        <button type="button" class="menu_button" data-action="visualCapabilities" data-viewer-title="ComfyUI models and workflows">Check server models and nodes</button>
+        <small>This button contacts ComfyUI, but does not generate images. You can configure everything below while it is stopped.</small>
+        </div></details>
+        <details class="ne-visual-group" open><summary>2. Workflows for each image type</summary><div class="ne-fields">
+        <p class="ne-help">Choose a built-in recipe, a server recipe name, or an imported workflow ID. Each image type keeps its own selection.</p>
+        <label class="ne-field">Illustration workflow<input class="text_pole" data-setting="visualWorkflow" list="ne-user-workflows"></label><small data-workflow-name="visualWorkflow"></small>
+        <label class="ne-field">Background workflow<input class="text_pole" data-setting="visualBackgroundWorkflow" list="ne-user-workflows"></label><small data-workflow-name="visualBackgroundWorkflow"></small>
+        <label class="ne-field">Sprite workflow<input class="text_pole" data-setting="visualSpriteWorkflow" list="ne-user-workflows" placeholder="Leave empty for backgrounds only"></label><small data-workflow-name="visualSpriteWorkflow"></small>
+        <datalist id="ne-user-workflows"></datalist>
+        <small>Built-in: scene_full or scene_integrated for illustrations; background or background_integrated for backgrounds; sprite_integrated for transparent sprites (requires BiRefNet).</small>
+        <label class="ne-field">My positive tags / description<textarea class="text_pole" rows="3" maxlength="2000" data-setting="visualPositive" placeholder="fabric texture, detailed hair, soft lighting"></textarea></label>
+        <label class="ne-field">My negative tags / description<textarea class="text_pole" rows="3" maxlength="2000" data-setting="visualNegative" placeholder="watermark, blurry details"></textarea></label>
+        <small>Added to built-in prompts. Imported templates place these texts using the My positive / My negative chips. Keep additions consistent with the story.</small>
+        <div class="ne-workflow-library">
+          <strong>Your imported workflows</strong>
+          <p class="ne-help">Import a ComfyUI API JSON or a recipe with bindings. Saved in extension settings; importing uses no GPU.</p>
+          <input type="file" accept=".json,application/json" data-workflow-file hidden>
+          <button type="button" class="menu_button" data-workflow-import>Import workflow JSON</button>
+          <label class="ne-field">Saved workflows<select data-workflow-library></select></label>
+          <div class="ne-action-list"><button type="button" class="menu_button" data-workflow-edit disabled>Edit inputs and chips</button><button type="button" class="menu_button" data-workflow-export disabled>Export selected</button><button type="button" class="menu_button" data-workflow-remove disabled>Remove selected</button></div>
+          <p data-workflow-notice role="status" class="ne-help">No server check is required to import a file.</p>
+        </div>
+        </div></details>
+        <details class="ne-visual-group"><summary>3. Automatic updates and GPU usage</summary><div class="ne-fields">
+        <label class="ne-field">Automatic illustrations <select class="text_pole" data-setting="visualIllustrationPolicy"><option value="significant">Location, cast, wardrobe or object changes</option><option value="all">Every visual change</option><option value="manual">Manual only</option></select></label>
+        <small>Layer mode updates cached backgrounds and sprites independently. Full illustrations remain available on demand. Failed automatic layers wait for a manual retry or changed inputs.</small>
+        <label class="ne-check"><input type="checkbox" data-setting="visualAutomatic"> Generate when the visual scene changes</label>
+        <label class="ne-field">Minimum automatic update interval (ms) <input class="text_pole" type="number" min="1000" max="300000" data-setting="visualCooldownMs"></label>
+        <label class="ne-check"><input type="checkbox" data-setting="visualLayers"> Update backgrounds and sprites independently</label>
+        </div></details>
+        <details class="ne-visual-group"><summary>4. Character consistency and art style</summary><div class="ne-fields">
+        <label class="ne-check"><input type="checkbox" data-setting="visualKeepSeed"> Reuse the last successful scene seed</label>
+        <label class="ne-check"><input type="checkbox" data-setting="visualLlmIntent"> LLM visual direction: grounded facial features and illustration framing</label>
+        <label class="ne-check"><input type="checkbox" data-setting="visualLocalExpressions"> Preserve sprite clothing when changing expressions (integrated sprite workflow)</label>
+        <label class="ne-field">Face detector model <input class="text_pole" data-setting="visualFaceDetector" placeholder="lbpcascade_animeface.xml or mediapipe_face_fp32.safetensors"></label>
+        <small>With an installed detector, the first sprite becomes an automatic face anchor. The Director's accepted visible expression drives subsequent local edits. Outfit or pose changes require a new base. Detection is not a quality approval.</small>
+        <button type="button" class="menu_button" data-action="editVisualAnchor">Inspect / adjust sprite face anchors</button>
+        <button type="button" class="menu_button" data-action="editVisualCard">Edit current character LoRA</button>
+        <label class="ne-field">Shared art style <input class="text_pole" data-setting="visualStyle" placeholder="anime illustration, clean line art, soft cel shading"></label>
+        <label class="ne-field">Camera / framing <input class="text_pole" data-setting="visualCamera" placeholder="eye-level, three-quarter view, medium shot"></label>
+        <small>Matching recipes: background_integrated and sprite_integrated. Transparent sprites require BiRefNet. The shared style applies to all three; camera changes do not regenerate a cached background.</small>
+        </div></details>
+        <details class="ne-visual-group"><summary>Advanced: partial updates and conditioning</summary><div class="ne-fields">
+        <label class="ne-check"><input type="checkbox" data-setting="visualPartial"> Use a partial-update workflow after a successful image</label>
         <label class="ne-field">Partial workflow <input class="text_pole" data-setting="visualPartialWorkflow"></label>
-        <label class="ne-field"><input type="checkbox" data-setting="visualStages.controlnet"> ControlNet: preserve composition</label>
-        <label class="ne-field"><input type="checkbox" data-setting="visualStages.ipadapter"> IPAdapter: preserve appearance</label>
-        <label class="ne-field"><input type="checkbox" data-setting="visualStages.mask"> Mask: limit updated region</label>
-        <button type="button" class="menu_button" data-action="describeVisualScene" data-viewer-title="Visual scene">Describe scene</button>
-        <button type="button" class="menu_button" data-action="requestIllustration" data-viewer-title="Illustration request">Generate illustration</button>
+        <label class="ne-check"><input type="checkbox" data-setting="visualStages.controlnet"> ControlNet: preserve composition</label>
+        <label class="ne-check"><input type="checkbox" data-setting="visualStages.ipadapter"> IPAdapter: preserve appearance</label>
+        <label class="ne-check"><input type="checkbox" data-setting="visualStages.mask"> Mask: limit updated region</label>
+        </div></details>
+        <div class="ne-action-list ne-visual-actions">
+        <button type="button" class="menu_button" data-action="requestIllustration" data-requires-visual data-viewer-title="Illustration request">Generate illustration</button>
+        <button type="button" class="menu_button" data-action="requestVisualLayers" data-requires-visual>Build background and sprites</button>
+        <button type="button" class="menu_button" data-action="viewVisualLayers">Open visual novel scene</button>
         <button type="button" class="menu_button" data-action="viewVisualJobs" data-viewer-title="Visual jobs and current images">View images and jobs</button>
+        <button type="button" class="menu_button" data-action="describeVisualScene" data-viewer-title="Visual scene">Inspect scene description</button>
+        </div>
+        </div>
     </details>
-    <details class="ne-section">
-        <summary>Inner life and world simulation</summary>
+    <details class="ne-spine__section ne-lower-section">
+        <summary><span class="ne-spine__node" aria-hidden="true"></span><span><strong>Inner life and world simulation</strong><small>Character reactions and the pace of the world</small></span><span class="ne-disclosure" aria-hidden="true"></span></summary>
         <div class="ne-fields ne-fields--numbers">
             <label class="ne-field">Inner life <select class="text_pole" data-setting="innerLifeMode"><option value="off">Off (simple emotions)</option><option value="light">Light</option><option value="full">Full</option></select></label>
             <label class="ne-field">World simulation <select class="text_pole" data-setting="simulationLevel"><option value="minimal">Minimal (time only)</option><option value="standard">Standard</option><option value="living">Living (NPC schedules)</option></select></label>
@@ -299,7 +361,7 @@
             <label class="ne-field">Minimum minutes per turn <input class="text_pole" type="number" data-setting="minTurnMinutes" min="0" max="525600"></label>
             <label class="ne-field">Maximum minutes per turn <input class="text_pole" type="number" data-setting="maxTurnMinutes" min="0" max="525600"></label>
         </div>
-        <label class="ne-field"><input type="checkbox" data-setting="showInternalState"> Show private state in author inspection (exports always include it)</label>
+        <label class="ne-check"><input type="checkbox" data-setting="showInternalState"> Show private state in author inspection (exports always include it)</label>
     </details>
 </div>
 

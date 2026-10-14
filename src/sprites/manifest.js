@@ -14,6 +14,7 @@ export function validateSpriteManifest(entries) {
             file: String(entry.file), character: String(entry.character), expression: String(entry.expression || ''),
             intensity: String(entry.intensity || ''), pose: String(entry.pose || ''), gaze: String(entry.gaze || ''),
             costume: String(entry.costume || ''), framing: String(entry.framing || ''),
+            wardrobeSignature: String(entry.wardrobeSignature || ''),
         });
     });
     return { valid: errors.length === 0, errors, entries: normalized };
@@ -26,6 +27,8 @@ export function filterSpriteCandidates(entries, query, limit = 20) {
     const pose = normalize(query.pose);
     return entries
         .filter((entry) => normalize(entry.character) === character)
+        .filter(entry => !costume || normalize(entry.costume) === costume)
+        .filter(entry => !query.wardrobeSignature || entry.wardrobeSignature === query.wardrobeSignature)
         .map((entry) => {
             let score = 1;
             if (costume && normalize(entry.costume) === costume) score += 8;

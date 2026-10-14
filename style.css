@@ -134,3 +134,59 @@
 
 .ne-visual-gallery img { display:block; max-width:100%; max-height:70vh; object-fit:contain; margin:auto; }
 .ne-visual-gallery figure { margin:1rem 0; }
+
+.ne-visual-card { width: min(680px, 92vw); max-height: 85vh; overflow: auto; color: var(--SmartThemeBodyColor, #eee); background: var(--SmartThemeBlurTintColor, #202020); border: 1px solid currentColor; border-radius: 12px; padding: 24px; }
+.ne-visual-card .ne-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.ne-visual-card fieldset { margin: 16px 0; padding: 12px; border: 1px solid #777; }
+.ne-visual-card button { margin: 6px; }
+.ne-visual-card::backdrop { background: #0008; }
+
+.ne-visual-stage-dialog { width: min(92vw, 1100px); max-height: 90vh; overflow: auto; color: inherit; background: var(--SmartThemeBlurTintColor, #222); border: 1px solid #777; border-radius: 12px; padding: 16px; }
+.ne-visual-stage { position: relative; width: 100%; aspect-ratio: 1216 / 832; background: #16191e; overflow: hidden; }
+.ne-visual-stage img { position: absolute; }
+.ne-stage-background { inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ne-stage-sprite { bottom: 0; height: 95%; object-fit: contain; transform: translateX(-50%); }
+
+/* Visual settings follow the existing theme and keep optional controls out of the primary flow. */
+.ne-visual-content { display: grid; gap: 1rem; padding: 1rem 0; min-width: 0; }
+.ne-check { display: flex; align-items: flex-start; gap: .6rem; cursor: pointer; font-size: .9rem; }
+.ne-check input[type="checkbox"] { flex: 0 0 auto; width: 1rem; height: 1rem; min-height: 0; margin: .2rem 0 0; }
+.ne-visual-status { margin: 0; padding: .75rem; border-left: 3px solid var(--ne-accent, #8db6ec); background: rgba(128,160,200,.08); }
+.ne-visual-group { border: 1px solid var(--ne-border, #495261); border-radius: .4rem; padding: .75rem; min-width: 0; }
+.ne-visual-group > summary { font-weight: 600; cursor: pointer; }
+.ne-visual-group > .ne-fields { padding-top: .8rem; }
+.ne-help { color: var(--ne-muted, #b7c2d2); font-size: .86rem; margin: .35rem 0; overflow-wrap: anywhere; }
+.ne-workflow-library { display: grid; gap: .6rem; border-top: 1px solid var(--ne-border, #495261); padding-top: .8rem; }
+.ne-visual-settings input, .ne-visual-settings select { max-width: 100%; box-sizing: border-box; }
+.ne-visual-settings button { white-space: normal; }
+.ne-visual-settings [data-kind="error"], .ne-workflow-dialog [data-error] { color: var(--ne-bad, #ff9c9c); }
+.ne-workflow-dialog { box-sizing: border-box; width: min(580px, calc(100vw - 32px)); max-height: 90vh; overflow: auto; padding: 1.2rem; border: 1px solid var(--ne-border, #495261); border-radius: .5rem; background: var(--ne-surface, #222833); color: var(--ne-text, #e5e7eb); }
+.ne-workflow-dialog form, .ne-workflow-dialog [data-bindings] { display: grid; gap: .8rem; min-width: 0; }
+.ne-workflow-dialog::backdrop { background: #0009; }
+.ne-visual-settings :focus-visible { outline: 2px solid var(--ne-accent, #8db6ec); outline-offset: 3px; }
+.ne-lower-section { padding: 0; }
+.ne-lower-section > summary { position: relative; display: flex; align-items: center; gap: .7rem; min-height: 4.15rem; cursor: pointer; list-style: none; }
+.ne-lower-section > summary::-webkit-details-marker { display: none; }
+.ne-lower-section > summary > span:nth-child(2) { display: grid; gap: .15rem; }
+.ne-lower-section > summary strong { font-size: .98rem; }
+.ne-lower-section > summary small { color: var(--ne-muted); font-weight: 400; }
+.ne-lower-section[open] > summary .ne-disclosure { transform: rotate(225deg); }
+.ne-lower-section > .ne-fields { padding: .5rem 0 1rem; }
+.ne-lower-section > .ne-check { padding-bottom: 1rem; }
+.ne-prompt-template { display: grid; gap: .5rem; border-top: 1px solid var(--ne-border, #495261); padding-top: .8rem; }
+.ne-prompt-chips { display: flex; gap: .35rem; flex-wrap: wrap; }
+.ne-prompt-chip { border: 1px solid var(--ne-accent, #8db6ec); background: rgba(128,160,200,.12); border-radius: 1rem; color: inherit; font: inherit; font-size: .8rem; padding: .3rem .6rem; cursor: pointer; }
+.ne-prompt-preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; padding: .6rem; background: #0002; margin: 0; }
+.ne-graph-scroll { overflow: auto; max-height: 280px; border: 1px solid var(--ne-border, #495261); }
+.ne-graph-scroll svg { max-width: none; display: block; }
+.ne-graph-link { stroke: var(--ne-muted, #8b9caf); fill: none; stroke-width: 1.5; }
+.ne-graph-scroll rect { fill: var(--ne-surface, #222833); stroke: var(--ne-border, #7b8ba1); }
+.ne-graph-scroll text { fill: var(--ne-text, #e5e7eb); font: 12px system-ui; }
+.ne-graph-scroll [data-node] { cursor: pointer; }
+.ne-graph-scroll .is-selected rect, .ne-graph-scroll [data-node]:focus rect { stroke: var(--ne-accent, #8db6ec); stroke-width: 3; }
+.ne-graph-input { display: flex; flex-wrap: wrap; gap: .4rem; padding: .5rem 0; border-bottom: 1px solid var(--ne-border, #495261); }
+.ne-graph-input > span { width: 100%; overflow-wrap: anywhere; font-size: .82rem; }
+.ne-graph-inspector { margin-top: .8rem; }
+.ne-graph-view { min-width: 0; max-width: 100%; }
+.ne-graph-scroll { width: 100%; box-sizing: border-box; }
+.ne-workflow-dialog .ne-field textarea { width: 100%; box-sizing: border-box; resize: vertical; }

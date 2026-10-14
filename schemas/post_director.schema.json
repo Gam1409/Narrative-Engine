@@ -463,25 +463,43 @@
                 "additionalProperties": false
               },
               "evidence": {
-                "type": "object",
-                "properties": {
-                  "source": {
-                    "enum": [
-                      "rp",
-                      "user_action",
-                      "player_assertion"
-                    ]
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "ref"
+                    ],
+                    "properties": {
+                      "ref": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "additionalProperties": false
                   },
-                  "quote": {
-                    "type": "string",
-                    "minLength": 1
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "enum": [
+                          "rp",
+                          "user_action",
+                          "player_assertion"
+                        ]
+                      },
+                      "quote": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "quote"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": [
-                  "source",
-                  "quote"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             "required": [

@@ -342,3 +342,56 @@ test('branch indexes use last decisions and last eligible record without revivin
  await manager.selectBranch([]);assert.equal(manager.state.objects.marker,undefined);
  await manager.selectBranch([{idempotencyKey:'same',messageIndex:1}]);assert.equal(manager.state.objects.marker,'current');
 });
+
+test('POST repairs invalid event evidence once before committing, without changing RP text',async t=>{
+ const {runtime,context}=await fixture(t);const original=context.chat[1].mes;let calls=0;
+ runtime.director.run=async(_role,payload)=>{
+  calls++;
+  if(calls===2){assert.equal(payload.extraction_repair.error,'Simulation: Event evidence must quote the current turn');assert.equal(runtime.stateManager.records.length,0);}
+  return {audit:{valid:true,errors:[]},confidence:1,state_delta:{},relationship_delta:[],knowledge_delta:[],thread_delta:{},world_event_delta:{},memory_candidates:[],sprite_decisions:{},simulation_delta:{events:[{id:'event',kind:'action',summary:'takes sword',participants:['Anna'],visibleTo:['Anna'],significance:0.5,status:'occurred',evidence:{source:'rp',quote:calls===1?'translated invented quote':'takes sword'}}]}};
+ };
+ await runtime.processPost(1);assert.equal(calls,2);assert.equal(runtime.stateManager.pending.length,0);assert.equal(runtime.stateManager.records.length,1);assert.equal(context.chat[1].mes,original);
+});
+test('POST stops after one unsuccessful extraction repair and leaves canon unchanged',async t=>{
+ const {runtime}=await fixture(t);let calls=0;const before=runtime.stateManager.snapshot();
+ runtime.director.run=async()=>{calls++;return {audit:{valid:true,errors:[]},confidence:1,state_delta:{objects:{invented:true}},relationship_delta:[],knowledge_delta:[],thread_delta:{},world_event_delta:{},memory_candidates:[],sprite_decisions:{},simulation_delta:{events:[{evidence:{source:'rp',quote:'not in this turn'}}]}};};
+ await runtime.processPost(1);assert.equal(calls,2);assert.deepEqual(runtime.stateManager.snapshot(),before);assert.equal(runtime.stateManager.pending.length,1);
+});
+
+test('extraction repair does not override an existing negative story audit',async t=>{
+ const {runtime}=await fixture(t);let calls=0;
+ runtime.director.run=async()=>{calls++;return {audit:{valid:false,errors:[{severity:'high',kind:'agency',message:'User action invented'}]},confidence:1,state_delta:{},relationship_delta:[],knowledge_delta:[],thread_delta:{},world_event_delta:{},memory_candidates:[],sprite_decisions:{},simulation_delta:{events:[{evidence:{source:'rp',quote:'invalid'}}]}};};
+ await runtime.processPost(1);assert.equal(calls,1);assert.equal(runtime.stateManager.pending.length,1);
+});
+
+test('late extraction repair cannot commit after chat switch',async t=>{
+ const {runtime,context}=await fixture(t);let calls=0;const before=runtime.stateManager.snapshot();
+ runtime.director.run=async()=>{
+  calls++;
+  const post={audit:{valid:true,errors:[]},confidence:1,state_delta:{},relationship_delta:[],knowledge_delta:[],thread_delta:{},world_event_delta:{},memory_candidates:[],sprite_decisions:{}};
+  if(calls===1)post.simulation_delta={events:[{evidence:{source:'rp',quote:'invalid'}}]};
+  else context.chatId='switched';
+  return post;
+ };
+ await runtime.processPost(1);assert.equal(calls,2);assert.equal(runtime.stateManager.records.length,0);assert.deepEqual(runtime.stateManager.snapshot(),before);
+});
+
+
+test('POST resolves engine evidence references before journal persistence and replay', async t => {
+    const { runtime, context } = await fixture(t);
+    runtime.director.run = async (_role, payload) => ({
+        audit: { valid: true, errors: [] }, state_delta: {},
+        simulation_delta: { events: [{
+            id: 'take', kind: 'action', summary: 'takes sword', participants: ['Anna'],
+            visibleTo: ['Anna'], significance: 0.5, status: 'occurred',
+            evidence: { ref: payload.evidence_catalog.find(e => e.source === 'rp').ref },
+        }] },
+    });
+    await runtime.processPost(1);
+    assert.equal(runtime.stateManager.pending.length, 0);
+    const evidence = runtime.stateManager.records[0].delta.simulation.events[0].evidence;
+    assert.deepEqual(evidence, { source: 'rp', quote: 'takes sword' });
+    const before = runtime.stateManager.snapshot();
+    await runtime.loadChat(context);
+    assert.deepEqual(runtime.stateManager.snapshot(), before);
+});

@@ -1,12 +1,12 @@
 # Narrative Engine for SillyTavern
 
-**English** | [???????](README_RU.md)
+**English** | [Русский](README_RU.md)
 
 ![Narrative Engine](assets/narrative-engine-hero.png)
 
 Narrative Engine adds a separate Director model to SillyTavern. Your RP model writes the story; the Director tracks continuity, physical state, knowledge, relationships, world events and episodic memory. Optional sprite selection and ComfyUI jobs use accepted scene state.
 
-**Version 1.0.0.** Local validation: **126 client tests, 44 server tests and 27 golden scenario mappings passed**. Integration was inspected against SillyTavern 1.19.0 release commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`. Live SillyTavern, model and ComfyUI checks were excluded by agreement. Version 1.0.0 does not imply full empirical acceptance of every specification requirement. See the [final requirements review](reports/final_requirements_review.md).
+**Version 1.1.0.** Current local validation: **168 client / 89 server tests**. Earlier upstream inspection used SillyTavern 1.19.0 (`06bde939fb1e9c4c8d8641d810f0a916b5bce127`). Standalone LLM and ComfyUI experiments do not establish complete live SillyTavern acceptance. See [known limits](#known-limits).
 
 ## How it works
 
@@ -35,7 +35,7 @@ Records are immutable; status decisions are appended separately. Edit, delete an
 3. Open **Extensions ? Narrative Engine**, select the Director provider and model/profile, and test the connection.
 4. Enable the extension and choose the desired story systems.
 
-When updating to 1.0.0, update both the extension and any installed server plugin, then restart SillyTavern. Visual generation stays disabled until explicitly enabled and configured. Export world state before changing a long-running campaign. World export does not include visual profiles or image jobs.
+When updating to 1.1.0, update both the extension and any installed server plugin, then restart SillyTavern. Visual generation stays disabled until explicitly enabled and configured. Export world state before changing a long-running campaign. World export includes visual profiles; image jobs and ComfyUI image files remain external.
 
 ### Director providers
 
@@ -181,14 +181,80 @@ The same full replay benchmark with 3000 small deltas and 300 entities improved 
 
 ## Known limits
 
-- No live ST UI/group/VN, real Director, embedding or ComfyUI quality validation was performed.
+- Complete live ST UI/group/VN and embedding acceptance remains pending. Standalone Director and ComfyUI experiments cover selected scenarios, not general quality or end-to-end game behavior.
 - Legacy knowledge structures remain flexible. Low-confidence/disputed batches stay proposed/pending; there is no operation-level partial acceptance or separate ask-player policy UI.
 - Event conditions and autonomous NPC movement are limited; psychological inference depends on the Director model.
 - Context filtering covers Narrative Engine's additions, not history/cards independently included by ST.
 - Arbitrary semantic contradictions are not resolved automatically; supersession needs explicit links or fact keys.
-- Custom visual workflows, automatic mask generation, image identity and partial-redraw quality remain outside verified functionality.
-- Visual jobs have no automatic retention cleanup. Visual profiles/jobs are not included in canonical world export; ComfyUI owns image files.
+- Custom workflow import and prompt bindings are locally tested. Arbitrary node compatibility, image identity, geometry and partial-redraw quality still require live checks; there is no automatic vision quality gate.
+- Old terminal workflow graphs are compacted automatically; job rows and images are retained, so database growth is not fully bounded. World export includes visual profiles, but not image jobs or files. Layer PNGs are stored locally in plugin SQLite; standalone illustrations still depend on ComfyUI files.
 
 The [requirements review](reports/final_requirements_review.md) distinguishes local implementation, partial requirements and excluded live proof. LLM output is untrusted data; it is never executed as shell, JavaScript or SQL. Operation validation, server-side keys, fixed endpoints, request limits and user scoping protect the implemented boundaries without claiming universal prompt-injection resistance.
 
 License: [MIT](LICENSE).
+## Visual automation development
+
+Visual automation includes card LoRA profiles, reusable layers, integrated recipes, optional LLM visual direction and imported workflow bindings. The sections below distinguish implemented behavior from experimental quality results.
+
+In **Visual Director**, set the current ComfyUI address, the exact installed checkpoint filename and its prompt profile: **SDXL**, **Pony** or **Illustrious**. An empty address uses server configuration. Changing the address never redirects existing jobs or forwards the configured server API key to a different address. Private network hosts still use the server allowlist. **Check ComfyUI models and nodes** reads inventory without launching generation.
+
+**Edit current character LoRA** saves appearance, exact LoRA filenames, weights, family and trigger words to `data.extensions.narrative_engine.visual` while preserving other card extension fields. Select the matching world character ID. Duplicate active card identities/entity bindings fail explicitly. Existing JSON profiles remain readable; card profiles take precedence. A copied card receives a fresh visual ID when saved through the editor.
+
+The built-in `scene_full` template works without a recipe file for SDXL-family models; configured recipes retain precedence. Its LoRA slots are connected to both model and text conditioning. Unknown/mismatched LoRA families and unconfigured multi-character regional conditioning stop the job rather than silently dropping identity LoRAs. Custom recipes need `checkpointBinding`, `loraSlots` and bindings for `positive`/`negative` as applicable. **Anima** uses dedicated `scene_anima`, `background_anima` and `sprite_anima` recipes; the SDXL template rejects it.
+
+Automatic requests have a configurable cooldown (15 seconds by default) and combine superseded queued automatic work. One job is submitted at a time by default. Stale/failed results cannot replace the last valid visual metadata. Clothing item condition is part of sprite identity, and incompatible wardrobe candidates are excluded before ranking. Visual profiles are now part of atomic world import/export.
+
+Stage 2 adds reusable backgrounds and transparent sprite layers. Select **Background workflow** (built-in `background`) and a dedicated **Sprite workflow**, then use **Build current scene layers** / **Open visual novel scene**. Enable **Automatic visual novel layers** together with automatic generation to update layers after accepted turns. A blank sprite workflow generates only the background. See the [sprite recipe contract](server-plugin/examples/visual-layers.md).
+
+Layer PNGs persist in chat-scoped SQLite and survive a dynamic ComfyUI URL change. Emotion/wardrobe changes reuse the room and update the affected sprite. PNG decoding verifies real transparency; stale costumes are hidden while a replacement is pending. Binary quotas default to 256 MiB per chat / 1024 MiB total (`NARRATIVE_ENGINE_VISUAL_ASSET_SCOPE_MB` / `NARRATIVE_ENGINE_VISUAL_ASSET_TOTAL_MB`); exceeding them preserves existing assets and rejects new ones. Reinstall server dependencies (`npm install`) for pngjs, then restart ST.
+
+Earlier stage validation: **142 client / 64 server tests**, plus a synthetic browser/queue/SQLite scenario. This does **not** establish live ST/ComfyUI quality. The stage uses its own viewer, not Character Expressions. Remaining limits include general spatial placement, illustration conditioning from saved layers, model file hash verification and full history/image retention. Opt-in LLM visual direction and terminal graph compaction are described below. Model filenames and recipe version determine reuse; bump the version if replacing a model under the same name. The compiler uses accepted state, with optional bounded LLM visual direction.
+
+
+### Visual pacing and integrated scenes
+
+The experimental `scene_integrated` recipe generates a whole scene, with separate identity passes for up to two characters. `background_integrated` and `sprite_integrated` use the same selected art style; sprites require BiRefNet nodes/model. These recipes support Anima when the exact diffusion model, text encoder and VAE filenames are configured. SDXL-family models use a checkpoint. Geometry, clothing detail and action fidelity still require visual acceptance; an optional upscale/img2img detail pass is available in configured integrated illustration recipes; a vision quality gate is not implemented.
+
+Automatic illustrations now default to significant changes: location/environment, cast, appearance, wardrobe or objects. Expression/pose/position-only changes do not request a full illustration. Choose **Every visual change** for the earlier behavior or **Manual only** for on-demand illustrations. In layer mode, ordinary turns update only changed resources; full illustrations remain manual. Manual requests bypass the significance filter. Failed automatic layers are reused as failures until inputs change or **Build current scene layers** explicitly retries them. There is no automatic visual repair loop.
+
+Visual requests remain asynchronous relative to accepted story turns. Old wardrobe sprites are hidden rather than presented as current; an unchanged ready background remains available. Server job diagnostics expose queue/processing/total time, including polling and transfer overhead, not pure GPU time. The stage reports time until layer metadata is ready, excluding browser image decoding and the LLM turn. See live cycle results and limits. Latest local validation: **146 client / 82 server tests**.
+
+
+For selected illustrations, an integrated recipe can enable `detail: {"scale": 1.5, "denoise": 0.16}`. This saves the base frame for comparison, enlarges it and runs low-denoise refinement with separate character LoRA branches. It is disabled by default, costs additional GPU time and does not guarantee unchanged clothing or corrected geometry. See the [recipe contract](server-plugin/examples/visual-layers.md) and detail-pass evaluation.
+
+
+### Local sprite expressions
+
+Enable **Preserve sprite clothing when changing expressions**, select `sprite_integrated`, and configure an installed face detector. The Director's accepted visible expression drives automatic local edits; compatible identity, costume/condition and pose select the base sprite. The first sprite is detected automatically; **Inspect / adjust sprite face anchors** is an optional correction tool. With no detector, manual anchor selection remains available. Outfit/pose changes require a new base. Exact original pixels outside the selected face rectangle and original transparency are preserved after generation.
+
+Anime setup and model installation: [optional ComfyUI node](comfy-node/README.md). The tested settings use `lbpcascade_animeface.xml`; built-in MediaPipe is also supported when installed but did not detect this sample. Missing/ambiguous detection reports a warning and does not guess an anchor. Live measurements and acceptance boundaries: local expressions took 10.5–12.4 s; browser/LLM time is excluded. Pixel preservation is verified, general image quality and the full ST browser flow are not.
+
+### Compact LLM visual direction
+
+The opt-in **LLM visual direction** setting uses the configured Director provider to select bounded facial features and illustration framing. Canon supplies clothing, pose, light, objects, appearance and LoRA; manual framing wins. Facial changes do not invalidate the background. Automatic pose/light changes are not implemented.
+
+An in-memory cache holds up to 32 scenes and coalesces concurrent requests. Scope, scene, profile and provider instance isolate decisions; current turn provenance and canon version are reapplied. Unknown fields/values are rejected; omitted camera preserves current framing. Invalid responses block visual submission and are not retried on every poll; recreating the extension instance allows a fresh attempt. The bounded vocabulary does not prove semantic grounding of every selected feature.
+
+Validation: 152 client / 82 server tests. Direct Qwen smoke: 3/3 responses, 1.65–2.04 s without ComfyUI. The diagnostic disables reasoning via API overrides; production providers retain their own configuration, so latency may differ. Full SillyTavern browser acceptance with this setting remains pending. Report.
+
+The visual contract is model-neutral: the shared prompt explains downstream image generation without `/no_think`; plain JSON and a whole Markdown JSON fence are accepted with strict field validation. Model/endpoint/provider-profile changes invalidate cached decisions. Exploratory Qwen A/B: purpose context produced 4/4 usable responses versus 1/4 without it, with mean latency increasing from 2.42 to 3.11 s. Small sample; other LLMs remain untested live. Client tests: 155. Comparison.
+
+Standalone RP check: 3/4 turns accepted; the fourth remained pending due to invalid event evidence. Added one bounded extraction repair before commit and protection against an in-place context chatId change. Client tests: 159. This uses a simulated ST host, not full game acceptance. Russian report.
+
+User-story understanding probe: 20/20 structurally valid responses, with semantic failures including recalled clothing applied to the present, invented poses and a cafe cup carried into a street description. Two concurrent requests: median 49.21 s, p95 56.42 s. This independent probe does not measure accumulated ST state. The real runtime retest accepted 3/4 turns; the final turn failed a memory-status enum. Added exact evidence references and POST guidance on narrative time and emotion appraisals. 164 client tests passed. Russian analysis.
+
+Typed state-command experiment: 39/40 Qwen 27B responses matched the predefined final states; one malformed JSON response was rejected. Eight short RP passages had a median latency of 4.10 s. Synthetic, single-pass fixtures with fixed initial states; complex psychology and accumulated trajectory errors remain untested. The experimental contract is not enabled in the runtime. Method, results and limitations (Russian).
+
+Long-session maintenance now compacts workflow graphs in up to 50 terminal jobs per minute, older than 24 hours, preserving the newest 100 terminal jobs per chat. Job identities, deduplication keys, prompts and images remain intact; active and ambiguous submissions are excluded. This does not bound total database size. Configure `NARRATIVE_ENGINE_VISUAL_GRAPH_COMPACTION=false`, `NARRATIVE_ENGINE_VISUAL_GRAPH_RETENTION_HOURS`, and `NARRATIVE_ENGINE_VISUAL_GRAPH_KEEP_RECENT`. All 85 server tests pass, including 3000 jobs without GPU requests. Details and limitations (Russian).
+
+### Imported workflows and prompt routing
+
+Visual Director settings now accept ComfyUI **API JSON** or a recipe with bindings. Choose separate workflows for illustrations, backgrounds and sprites. The optional graph viewer shows actual nodes/connections and lets you assign positive/negative text inputs. Four chips insert compiled scene positive, compiled scene negative, user positive and user negative text; literal text and token order are preserved. The Director supplies scene intent; deterministic bindings choose the destination, independently of the LLM provider.
+
+Up to 8 recipes are stored in extension settings (128 KiB each, 384 KiB total). Ordinary ComfyUI editor JSON must first be exported in API format. The graph is read-only apart from prompt assignments; automatic semantic routing for individual characters/regions is not implemented. Server validation checks bindings and performs model/node preflight before submission. Importing uses no GPU.
+
+Anima settings expose separate diffusion model, text encoder and VAE files, plus Base/Preview (30 steps, CFG 4), Aesthetic (30, 4), and Turbo (10, 1) presets for built-in recipes. Imported workflows retain their sampler settings. The explicit Anima workflow button changes the three selections without enabling automatic generation or downloading models.
+
+Local validation: **168 client / 89 server tests** and browser checks of persistence, prompt assignment, graph inspection and narrow layout. No live SillyTavern or GPU acceptance is claimed. See UI verification report.
+
+To configure a custom graph: **Visual Director → Workflows for each image type → Import workflow JSON → Edit inputs and chips → View graph and choose prompt inputs**. Import [the example recipe](server-plugin/examples/importable-illustration.json) to inspect the mapping; replace its example checkpoint with an installed model before generation. Connections are edited in ComfyUI. Source chips use `{{positive}}`, `{{negative}}`, `{{userPositive}}`, and `{{userNegative}}`. The scene chips refer to compiler output, not an unchecked raw LLM response.

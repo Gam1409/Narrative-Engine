@@ -896,6 +896,12 @@
     "canonVersion": {
       "type": "integer",
       "minimum": 0
+    },
+    "visualProfiles": {
+      "type": [
+        "object",
+        "null"
+      ]
     }
   }
 }

@@ -24,9 +24,10 @@ test('all required server routes are registered', () => {
     });
     const routes = registered.filter(([method]) => method !== 'USE').map(([method, path]) => `${method} ${path}`);
     assert.deepEqual(routes, [
-        'POST /visual/jobs','GET /visual/jobs/:chatId','GET /visual/jobs/:chatId/:id','GET /visual/image/:chatId/:id/:index',
+        'POST /visual/capabilities', 'GET /visual/anchors/:chatId', 'POST /visual/anchors', 'POST /visual/anchors/remove','GET /visual/assets/:chatId','GET /visual/asset/:chatId/:id',
+        'POST /visual/status','POST /visual/jobs','GET /visual/jobs/:chatId','GET /visual/jobs/:chatId/:id','GET /visual/image/:chatId/:id/:index',
         'GET /health',
-        'POST /director/pre', 'POST /director/post', 'POST /director/reconcile',
+        'POST /director/pre', 'POST /director/post', 'POST /director/reconcile', 'POST /director/visual',
         'POST /memory/embeddings', 'POST /memory/search', 'POST /memory/consolidate',
         'GET /storage/:chatId/:field', 'POST /storage/:chatId/:field', 'GET /storage/:chatId',
         'GET /state/:chatId', 'POST /state/:chatId', 'POST /state/:chatId/rebuild',

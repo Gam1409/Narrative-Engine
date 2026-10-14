@@ -5,6 +5,7 @@ const { assertObject, rateLimiter, safeJson, validateId } = require('./security'
 const { consolidateMemories, mergeState, searchMemories, selectSprite } = require('./services');
 
 const PROMPTS = {
+    visual: 'You are the visual presentation Director. Return strict JSON following the supplied bounded feature schema. Preserve canonical facts and never create state changes.',
     pre: 'You are the Narrative Engine Director PRE pass. Return strict JSON only. Preserve user agency and canon. Produce compact continuity, relevant memory, active threads, world pressure, and direction.',
     post: 'You are the Narrative Engine Director POST pass. Return strict JSON only. Audit continuity and user agency, then produce state_delta, relationship_delta, knowledge_delta, thread_delta, world_event_delta, memory_candidates, and sprite_decisions. Use simulation_delta for causal inner life, relationships and scheduled world events; legacy relationship_delta and world_event_delta stay empty for new clients.',
     reconcile: 'You are the Narrative Engine reconciliation pass. Return strict JSON only. Reconcile supplied accepted chat facts with structured state using explicit chat facts as highest priority.',
@@ -62,6 +63,32 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
 
 
     const visualService = () => { if (!visuals) throw Object.assign(new Error('Visual service unavailable'),{status:503}); return visuals; };
+    router.post('/visual/capabilities', asyncRoute(async (req, res) => {
+        const body = assertObject(req.body);
+        res.json(await visualService().capabilities(body.endpoint));
+    }));
+    router.get('/visual/anchors/:chatId', asyncRoute(async (req,res) => res.json(visualService().anchors.list(scopeChatId(req,req.params.chatId)))));
+    router.post('/visual/anchors', asyncRoute(async (req,res) => {
+        const body=assertObject(req.body), scope=scopeChatId(req,body.chatId);
+        res.json(visualService().anchors.pin(scope,validateId(body.assetId),body.face));
+    }));
+    router.post('/visual/anchors/remove', asyncRoute(async (req,res) => {
+        const body=assertObject(req.body), scope=scopeChatId(req,body.chatId);
+        visualService().anchors.remove(scope,validateId(body.key)); res.json({ok:true});
+    }));
+    router.get('/visual/assets/:chatId', asyncRoute(async (req,res) => res.json(visualService().assets.list(scopeChatId(req,req.params.chatId)))));
+    router.get('/visual/asset/:chatId/:id', asyncRoute(async (req,res) => {
+        const image = visualService().assets.image(scopeChatId(req,req.params.chatId), validateId(req.params.id));
+        res.set('Content-Type', 'image/png'); res.set('X-Content-Type-Options','nosniff');
+        res.set('Cache-Control','private, no-store'); res.send(image.bytes);
+    }));
+    router.post('/visual/status', asyncRoute(async (req,res) => {
+        const body = assertObject(req.body);
+        if (!Array.isArray(body.ids) || !body.ids.length || body.ids.length > 10)
+            throw Object.assign(new Error('Expected one to ten visual job IDs'), {status:400});
+        const scope = scopeChatId(req,body.chatId);
+        res.json(body.ids.map(id=>visualService().get(scope,validateId(id))));
+    }));
     router.post('/visual/jobs',asyncRoute(async(req,res)=>{const body=assertObject(req.body);res.json(visualService().enqueue(scopeChatId(req,body.chatId),body));}));
     router.get('/visual/jobs/:chatId',asyncRoute(async(req,res)=>res.json(visualService().list(scopeChatId(req,req.params.chatId)))));
     router.get('/visual/jobs/:chatId/:id',asyncRoute(async(req,res)=>res.json(visualService().get(scopeChatId(req,req.params.chatId),validateId(req.params.id)))));
@@ -77,13 +104,13 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
     }));
     router.get('/health', asyncRoute(async (_req, res) => res.json({ ok: true, schemaVersion: 2, provider: await provider.healthCheck() })));
 
-    for (const phase of ['pre', 'post', 'reconcile']) {
+    for (const phase of ['pre', 'post', 'reconcile', 'visual']) {
         router.post(`/director/${phase}`, asyncRoute(async (req, res) => {
             const body = assertObject(req.body);
             const started = Date.now();
             try {
                 const messages = directorMessages(phase, body, config.bodyLimitBytes);
-                const result = await provider.complete({ messages, maxTokens: phase === 'pre' ? 2000 : 2500 });
+                const result = await provider.complete({ messages, maxTokens: phase === 'visual' ? 700 : phase === 'pre' ? 2000 : 2500 });
                 const output = result?.choices?.[0]?.message?.content;
                 if (typeof output !== 'string') throw Object.assign(new Error('Director response has no message content'), { status: 502 });
                 res.json({ output, usage: result.usage || null, model: result.model || config.providerModel });

@@ -1,3 +1,5 @@
+import { buildEvidenceCatalog } from '../state/evidence.js';
+import { visualProfile } from '../visual/scene.js';
 import { VisualDirector } from '../visual/director.js';
 import { simulationPolicy, prepareSimulation, innerLifeContext, postSimulationState } from '../state/simulationContext.js';
 import { pendingReactions } from '../state/simulation.js';
@@ -291,7 +293,7 @@ export class NarrativeRuntime {
         const token = this.gate.begin(identity);
         const assertCurrent = async () => {
             this.gate.assertCurrent(token);
-            if (this.stateManager !== manager || getChatFingerprint(getContext()) !== getChatFingerprint(context)) throw new Error('Stale chat context');
+            if (this.stateManager !== manager || getChatFingerprint(getContext()) !== manager.chatFingerprint) throw new Error('Stale chat context');
             const current = (await branchReferences(context, messageIndex, manager.canonVersion)).at(-1);
             if (current?.idempotencyKey !== ref.idempotencyKey) throw new Error('Stale message content');
         };
@@ -313,15 +315,37 @@ export class NarrativeRuntime {
             user_agency: 'Never assign voluntary actions or internal states to the player. NPC internal states require character-consistent evidence, not a player assertion.',
         };
         try {
+            payload.evidence_catalog = await buildEvidenceCatalog({rp: payload.rp_response, user: payload.user_message});
+            await assertCurrent();
             const promptAddendum = await loadStatePromptBundle(this.settings, 'post');
+            let simulationValidationError = null;
+            let extractionRepairUsed = false;
             const validatePost = result => {
-                try { prepareSimulation(result, combineDelta(result, this.settings), stateBefore, payload.simulation_policy, {rp: payload.rp_response, user: payload.user_message}); }
-                catch (error) { result.audit = {...result.audit, valid: false, errors: [...(result.audit?.errors || []), {severity:'high', kind:'simulation', message:error.message}]}; }
+                simulationValidationError = null;
+                try { prepareSimulation(result, combineDelta(result, this.settings), stateBefore, payload.simulation_policy, {rp: payload.rp_response, user: payload.user_message, evidenceCatalog: payload.evidence_catalog}); }
+                catch (error) { simulationValidationError = error.message; result.audit = {...result.audit, valid: false, errors: [...(result.audit?.errors || []), {severity:'high', kind:'simulation', message:error.message}]}; }
                 return result;
+            };
+            const validateWithRepair = async result => {
+                const auditWasValid = result.audit.valid;
+                result = validatePost(result);
+                if (!auditWasValid || !simulationValidationError || extractionRepairUsed) return result;
+                extractionRepairUsed = true;
+                this.diagnostics.recordRepair();
+                const repaired = await this.director.run('post', {
+                    ...payload,
+                    extraction_repair: {
+                        error: simulationValidationError,
+                        invalid_output: result,
+                        instruction: 'Correct only the extraction contract/evidence error using the unchanged current-turn text. Return a complete POST result. Prefer evidence:{ref} selected from evidence_catalog. Never invent a reference. Legacy quotes must be verbatim in the original language. Omit unsupported optional changes. Do not rewrite RP, invent facts, or dismiss legitimate audit concerns.',
+                    },
+                }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
+                await assertCurrent();
+                return validatePost(repaired);
             };
             let post = await this.director.run('post', payload, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
             await assertCurrent();
-            post = validatePost(post);
+            post = await validateWithRepair(post);
             if (!post.audit.valid && auditMode === 'strict' && highSeverity(post.audit)) {
                 this.diagnostics.recordStrictRewrite();
                 const rewritten = await this.rewriteOnce(payload, post.audit, identity, token.signal);
@@ -334,9 +358,11 @@ export class NarrativeRuntime {
                     await assertCurrent();
                     context.updateMessageBlock?.(messageIndex, message, { rerenderMessage: true });
                     payload.rp_response = rewritten;
+                    payload.evidence_catalog = await buildEvidenceCatalog({rp: rewritten, user: payload.user_message});
+                    await assertCurrent();
                     post = await this.director.run('post', { ...payload, rp_response: rewritten, re_audit: true }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
                     await assertCurrent();
-                    post = validatePost(post);
+                    post = await validateWithRepair(post);
                 }
             }
             const confidence = Number.isFinite(post.confidence) ? post.confidence : 0.5;
@@ -347,7 +373,7 @@ export class NarrativeRuntime {
                     memory.embeddingHash = await textHash(memory.text); return memory;
                 })) : [];
             await assertCurrent();
-            const delta = status === 'confirmed' ? prepareSimulation(post, combineDelta(post, this.settings), stateBefore, payload.simulation_policy, {rp:payload.rp_response,user:payload.user_message}) : {...combineDelta(post,this.settings), ...(post.simulation_delta ? {simulation: {...post.simulation_delta, policy:payload.simulation_policy}} : {})};
+            const delta = status === 'confirmed' ? prepareSimulation(post, combineDelta(post, this.settings), stateBefore, payload.simulation_policy, {rp:payload.rp_response,user:payload.user_message,evidenceCatalog:payload.evidence_catalog}) : {...combineDelta(post,this.settings), ...(post.simulation_delta ? {simulation: {...post.simulation_delta, policy:payload.simulation_policy}} : {})};
             status = await manager.recordTurn(delta, { ...ref, generationId: identity.generationId, requestId: identity.requestId }, {
                 confidence, status, audit: post.audit,
                 memories: normalizedMemories,
@@ -361,14 +387,15 @@ export class NarrativeRuntime {
                 idempotencyKey: ref.idempotencyKey, deltaId: manager.findAccepted(ref.idempotencyKey).deltaId, schemaVersion: 2 };
             await context.saveChat?.();
             await assertCurrent();
-            this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
-                context, currentSpeaker: speaker, previous: this.spriteState, allowedCandidates: payload.sprite_candidates,
+            if (this.settings.spriteDirector) this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
+                context, currentSpeaker: speaker, previous: this.spriteState,
+                allowedCandidates: { [speaker]: this.spriteManifests.candidatesFor(speaker, manager.snapshot(), 20) },
             });
             if(this.settings.visualEnabled && this.settings.visualAutomatic) this.visualDirector?.request({automatic:true}).catch(error=>this.diagnostics.error(error,'visual'));
             return true;
         } catch (error) {
             // Never write another chat's state or metadata from a late completion.
-            if (this.gate.isCurrent(token) && this.stateManager === manager && getChatFingerprint(getContext()) === getChatFingerprint(context)) {
+            if (this.gate.isCurrent(token) && this.stateManager === manager && getChatFingerprint(getContext()) === manager.chatFingerprint) {
                 const current = (await branchReferences(context, messageIndex, manager.canonVersion)).at(-1);
                 if (current?.idempotencyKey === ref.idempotencyKey) {
                     if (!manager.findAccepted(ref.idempotencyKey)) await manager.setPending(ref, safeError(error));
@@ -482,7 +509,7 @@ export class NarrativeRuntime {
             }, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
             this.gate.assertCurrent(token);
             const speaker = resolveMessageSpeaker(message, context).name;
-            this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
+            if (this.settings.spriteDirector) this.spriteState = await applySpriteDecisions(post.sprite_decisions, {
                 context, currentSpeaker: speaker, previous: this.spriteState,
                 allowedCandidates: { [speaker]: this.spriteManifests.candidatesFor(speaker, this.stateManager.snapshot(), 20) },
             });
@@ -504,6 +531,7 @@ export class NarrativeRuntime {
             state: this.stateManager.snapshot(), memories: [...this.memoryStore.items],
             threads: Object.values(this.stateManager.state.threads || {}),
             timeline: this.stateManager.state.timeline, spriteState: { ...this.spriteState },
+            visualProfiles: await this.visualDirector.profiles(),
         };
     }
 
@@ -515,7 +543,14 @@ export class NarrativeRuntime {
     async importStateNow(value) {
         const validation = validateSchema(await loadSchema('export'), value);
         if (!validation.valid) throw new Error(`Invalid Narrative Engine export: ${validation.errors.map((item) => `${item.path} ${item.message}`).join('; ')}`);
+        if (value.visualProfiles) {
+            for (const [id, profile] of Object.entries(value.visualProfiles)) {
+                if (id !== profile.entityId) throw new Error('Visual profile ID mismatch');
+                visualProfile(profile);
+            }
+        }
         await this.stateManager.importData(value);
+        this.spriteManifests.visualProfiles = await this.visualDirector.profiles();
         this.memoryStore.items = this.stateManager.memories;
         this.spriteState = value.spriteState || {};
         await this.persistCompactMetadata();

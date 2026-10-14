@@ -1,0 +1,112 @@
+{
+  "operation": "illustration",
+  "version": 1,
+  "outputNode": "9",
+  "workflow": {
+    "2": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "",
+        "clip": [
+          "1",
+          1
+        ]
+      }
+    },
+    "1": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "example.safetensors"
+      }
+    },
+    "9": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "8",
+          0
+        ],
+        "filename_prefix": "NarrativeEngine/imported"
+      }
+    },
+    "8": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "7",
+          0
+        ],
+        "vae": [
+          "1",
+          2
+        ]
+      }
+    },
+    "7": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 1,
+        "steps": 20,
+        "cfg": 6,
+        "sampler_name": "euler",
+        "scheduler": "normal",
+        "denoise": 1,
+        "positive": [
+          "2",
+          0
+        ],
+        "negative": [
+          "3",
+          0
+        ],
+        "model": [
+          "1",
+          0
+        ],
+        "latent_image": [
+          "4",
+          0
+        ]
+      }
+    },
+    "3": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "blur",
+        "clip": [
+          "1",
+          1
+        ]
+      }
+    },
+    "4": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 1024,
+        "height": 1024,
+        "batch_size": 1
+      }
+    }
+  },
+  "bindings": [
+    {
+      "node": "2",
+      "input": "text",
+      "source": "positive"
+    },
+    {
+      "node": "3",
+      "input": "text",
+      "source": "negative"
+    },
+    {
+      "node": "7",
+      "input": "seed",
+      "source": "seed"
+    }
+  ],
+  "checkpointBinding": {
+    "node": "1",
+    "input": "ckpt_name"
+  }
+}

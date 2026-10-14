@@ -35,6 +35,19 @@
     },
     "preserve": {
       "type": "array"
+    },
+    "backgroundId": {
+      "type": "string"
+    },
+    "spriteIds": {
+      "type": "object"
+    },
+    "canonVersion": {
+      "type": "integer"
+    },
+    "visualCamera": {
+      "type": "string",
+      "maxLength": 300
     }
   },
   "additionalProperties": false

@@ -10,6 +10,12 @@ export const DEFAULT_PROMPT_VARIANTS = Object.freeze({
 export const DEFAULT_SETTINGS = Object.freeze({
     ...SIMULATION_DEFAULTS,
     showInternalState: false,
+    visualUserWorkflows: [], visualAnimaVariant: 'base', visualPositive: '', visualNegative: '',
+    visualIllustrationPolicy: 'significant',
+    visualLlmIntent: false, visualLocalExpressions: false, visualFaceDetector: '',
+    visualLayers: false, visualBackgroundWorkflow: 'background', visualSpriteWorkflow: '',
+    visualEndpoint: '', visualCheckpoint: '', visualPromptProfile: 'sdxl', visualCooldownMs: 15000,
+    visualStyle: '', visualCamera: '', visualTextEncoder: '', visualVae: '',
     visualEnabled: false, visualAutomatic: false, visualKeepSeed: true, visualPartial: false,
     visualWorkflow: 'scene_full', visualPartialWorkflow: '', visualStages: {controlnet:false,ipadapter:false,mask:false},
     enabled: false,
@@ -75,8 +81,18 @@ export function normalizeSettings(candidate = {}) {
     merged.repetitionThreshold = Math.round(clampNumber(merged.repetitionThreshold,2,20,3));
     merged.minTurnMinutes = clampNumber(merged.minTurnMinutes,0,525600,0);
     merged.maxTurnMinutes = clampNumber(merged.maxTurnMinutes,merged.minTurnMinutes,525600,1440);
-    for(const key of ['visualEnabled','visualAutomatic','visualKeepSeed','visualPartial']) merged[key]=merged[key]===true;
-    for(const key of ['visualWorkflow','visualPartialWorkflow']) merged[key]=String(merged[key] || '').trim().slice(0,100);
+    for(const key of ['visualEnabled','visualAutomatic','visualKeepSeed','visualPartial','visualLayers','visualLocalExpressions','visualLlmIntent']) merged[key]=merged[key]===true;
+    for(const key of ['visualWorkflow','visualPartialWorkflow','visualBackgroundWorkflow','visualSpriteWorkflow']) merged[key]=String(merged[key] || '').trim().slice(0,100);
+    merged.visualUserWorkflows = Array.isArray(merged.visualUserWorkflows) ? structuredClone(merged.visualUserWorkflows.slice(0,8)) : [];
+    merged.visualEndpoint = String(merged.visualEndpoint || '').trim().slice(0, 2000);
+    for (const key of ['visualStyle','visualCamera']) merged[key] = String(merged[key] || '').trim().slice(0,300);
+    for (const key of ['visualTextEncoder','visualVae','visualFaceDetector']) merged[key] = String(merged[key] || '').trim().slice(0,500);
+    merged.visualAnimaVariant = ['base','aesthetic','turbo'].includes(merged.visualAnimaVariant) ? merged.visualAnimaVariant : 'base';
+    for (const key of ['visualPositive','visualNegative']) merged[key] = String(merged[key] || '').trim().slice(0,2000);
+    merged.visualCheckpoint = String(merged.visualCheckpoint || '').trim().slice(0, 500);
+    merged.visualPromptProfile = ['sdxl', 'pony', 'illustrious', 'anima'].includes(merged.visualPromptProfile) ? merged.visualPromptProfile : 'sdxl';
+    merged.visualIllustrationPolicy = ['significant', 'all', 'manual'].includes(merged.visualIllustrationPolicy) ? merged.visualIllustrationPolicy : 'significant';
+    merged.visualCooldownMs = clampNumber(merged.visualCooldownMs, 1000, 300000, 15000);
     merged.visualStages=Object.fromEntries(['controlnet','ipadapter','mask'].map(k=>[k,merged.visualStages?.[k]===true]));
     merged.embeddingSearch = merged.embeddingSearch === true;
     merged.memoryWeights = Object.fromEntries(Object.entries(DEFAULT_SETTINGS.memoryWeights).map(([key, value]) => [key, clampNumber(merged.memoryWeights?.[key], 0, 2, value)]));

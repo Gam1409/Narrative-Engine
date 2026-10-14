@@ -1,3 +1,4 @@
+import { visualProfile } from '../visual/scene.js';
 import { validateSimulationState } from './simulation.js';
 import { validateWorld } from './entities.js';
 import { applyStateDelta, createInitialState } from './model.js';
@@ -13,7 +14,7 @@ export class StateManager {
         this.state = createInitialState(); this.deltas = []; this.checkpoints = [];
         this.records = []; this.decisions = []; this.pending = []; this.memories = [];
         this.scope = { mode: 'session_only', campaignId: chatFingerprint, sessionId: chatFingerprint };
-        this.canonVersion = 0; this.dirty = false; this.legacyMemories = [];
+        this.visualProfiles = null; this.canonVersion = 0; this.dirty = false; this.legacyMemories = [];
     }
     get prefix() { return `narrative-engine:${this.chatFingerprint}`; }
     snapshot() { return clone(this.state); }
@@ -45,6 +46,7 @@ export class StateManager {
         this.state = migrateState(bundle.state);
         for (const key of ['deltas', 'checkpoints', 'records', 'decisions', 'pending', 'memories', 'legacyMemories']) this[key] = clone(bundle[key] || []);
         this.records = deepFreeze(this.records);
+        this.visualProfiles = clone(bundle.visualProfiles ?? null);
         this.canonVersion = bundle.canonVersion || 0;
         this.scope = clone(bundle.scope || this.scope);
         return this.snapshot();
@@ -52,7 +54,7 @@ export class StateManager {
     bundle(patch = {}) {
         return clone({ historyVersion: 2, state: this.state, deltas: this.deltas, checkpoints: this.checkpoints,
             records: this.records, decisions: this.decisions, pending: this.pending, memories: this.memories,
-            legacyMemories: this.legacyMemories, scope: this.scope, canonVersion: this.canonVersion, ...patch });
+            visualProfiles: this.visualProfiles, legacyMemories: this.legacyMemories, scope: this.scope, canonVersion: this.canonVersion, ...patch });
     }
     async commit(patch) {
         const bundle = this.bundle(patch);
@@ -203,12 +205,19 @@ export class StateManager {
     async persistBundle(state, deltas, checkpoints) { await this.commit({ state, deltas, checkpoints }); }
     exportData({ memories = this.memories, spriteState = {} } = {}) {
         return { schemaVersion: this.state.schemaVersion, chatFingerprint: this.chatFingerprint,
-            state: this.snapshot(), memories: clone(memories), threads: clone(this.state.threads), timeline: clone(this.state.timeline), spriteState: clone(spriteState) };
+            state: this.snapshot(), memories: clone(memories), threads: clone(this.state.threads), timeline: clone(this.state.timeline), spriteState: clone(spriteState), visualProfiles: clone(this.visualProfiles || {}) };
     }
     async importData(bundle) {
         if (!bundle || bundle.chatFingerprint !== this.chatFingerprint || !bundle.state) throw new Error('Import does not match current chat');
+        if (bundle.visualProfiles) {
+            for (const [id, profile] of Object.entries(bundle.visualProfiles)) {
+                if (id !== profile.entityId) throw new Error('Visual profile ID mismatch');
+                visualProfile(profile);
+            }
+        }
         const state = migrateState(bundle.state); this.validate(state);
         await this.commit({ state, deltas: [], checkpoints: [createCheckpoint(state, -1, { imported: true, memories: clone(bundle.memories || []) })],
+            visualProfiles: clone(bundle.visualProfiles ?? this.visualProfiles),
             records: [], decisions: [], pending: [], memories: bundle.memories || [], canonVersion: this.canonVersion + 1 });
         return this.snapshot();
     }

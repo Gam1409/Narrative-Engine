@@ -96,3 +96,33 @@ test('KEEP preserves state and an out-of-shortlist sprite is not executed', asyn
     assert.deepEqual(next, previous);
     assert.deepEqual(commands, []);
 });
+
+
+test('matching expression cannot outweigh incompatible clothing or a missing wardrobe signature', () => {
+    const sprites = [
+        { character: 'Anna', file: 'old.png', costume: 'old', expression: 'joy', pose: 'standing' },
+        { character: 'Anna', file: 'unknown.png', expression: 'joy' },
+        { character: 'Anna', file: 'new.png', costume: 'new', wardrobeSignature: 'torn' },
+    ];
+    const candidates = filterSpriteCandidates(sprites, { character: 'Anna', costume: 'new', expression: 'joy', wardrobeSignature: 'torn' });
+    assert.deepEqual(candidates.map(item => item.file), ['new.png']);
+});
+
+test('rejected sprite cannot execute a costume command', async () => {
+    const commands = [];
+    await applySpriteDecisions({ Anna: { action: 'SET', sprite: 'bad.png', costume: 'invented' } }, {
+        context: { executeSlashCommandsWithOptions: async command => commands.push(command) },
+        currentSpeaker: 'Anna', allowedCandidates: { Anna: [{ file: 'good.png', costume: 'canon' }] },
+    });
+    assert.deepEqual(commands, []);
+});
+
+
+test('validated costume change applies even with the same expression filename',async()=>{
+    const commands=[];
+    await applySpriteDecisions({Anna:{sprite:'neutral.png',costume:'formal'}},{
+        context:{executeSlashCommandsWithOptions:async command=>commands.push(command)},
+        currentSpeaker:'Anna',previous:{Anna:'neutral.png'},allowedCandidates:{Anna:[{file:'neutral.png',costume:'formal'}]}});
+    assert.equal(commands.length,2);assert.match(commands[0],/costume.*formal/);
+    assert.match(commands[1],/expression-set/);
+});

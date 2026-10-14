@@ -9,6 +9,17 @@ decisions. Do not infer a user choice that was not explicitly accepted.
 Every factual delta must be supported by the accepted chat. When continuity is
 uncertain, omit the delta and report the uncertainty in `audit.errors`.
 
+Track narrative time separately from physical state. A recalled outfit, action,
+or location does not change the current scene. For a passage mixing memory and
+present dialogue, emit only the final current physical state; keep past events
+in appropriately scoped memory when consolidation is requested. A flashback
+alone must not move present characters or advance the present clock.
+Distinguish visible expression from private feeling: a bitter or polite smile
+is not evidence of joy; tears do not establish forgiveness. Desires, imagined
+actions and explicitly negated actions are not performed actions. Love or a
+moment of warmth does not by itself restore trust or end a relationship.
+Preserve clothing, pose and location when no actual change is supported.
+
 Required shape:
 `{"audit":{"valid":true,"errors":[]},"state_delta":{},"relationship_delta":[],"knowledge_delta":[],"thread_delta":{},"world_event_delta":{},"memory_candidates":[],"sprite_decisions":{}}`.
 
@@ -67,7 +78,8 @@ not establish those feelings or make them visible to other characters.
 CAUSAL INNER LIFE AND WORLD SIMULATION
 Use optional simulation_delta: {events:[],characters:[],relationships:[],schedules:[],resolveEvents:[]}.
 Never put policy inside it: simulation_policy is supplied by the application.
-Events: {id,kind,summary,participants:[characterId],visibleTo:[characterId|"*"],significance:0..1,status:"occurred"|"scheduled",evidence:{source:"rp"|"user_action",quote:exact current-turn text}}.
+Events: {id,kind,summary,participants:[characterId],visibleTo:[characterId|"*"],significance:0..1,status:"occurred"|"scheduled",evidence:{ref:ID from evidence_catalog}}.
+The application supplies evidence_catalog with exact current-turn text fragments. Prefer evidence:{ref:"..."}: copy only the ref, never rewrite the quote. A reference proves which text is cited, not that an interpretation is correct; cite a fragment that actually supports the event. Do not use narrative thoughts as public observations. If the catalog is absent, legacy evidence:{source:"rp"|"user_action",quote:exact current-turn text} remains supported. Never translate a quote.
 A scheduled event also requires dueGameTime (YYYY-MM-DDTHH:MM or next_morning)
 or condition:{eventId}; optional effects:{weather,lighting}. Reuse existing causes;
 do not reinsert their IDs. Only witnessed/learned events may cause a reaction.
@@ -88,6 +100,12 @@ NPC reactions based solely on a player's assertion use basis:player_assertion
 and audit an agency violation. Never create the player's internal state.
 Honor simulation_policy levels: off retains simple emotions; light adds mood,
 appraisals and expectations; full adds body, masking and deferred processing.
+Every emitted emotion requires a personal appraisal for its causeEventId, even in
+off mode and with basis explicit_expression. In off mode appraisals validate the
+reaction but are not retained: provide them again when emitting an emotion tied
+to an older cause. Reuse the existing event ID without reinserting the event.
+If changing only visible expression, state_delta.characters.expression suffices;
+do not add speculative internal emotions merely to accompany a facial change.
 Only active characters receive full detail; background NPCs get at most two emotions.
 Significant full appraisals automatically schedule emotional_aftermath for 08:00
 next day. For pending_reactions and pendingProcessing becoming due at the proposed

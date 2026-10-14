@@ -1,3 +1,4 @@
+import { resolveEvidence } from './evidence.js';
 import { clone } from '../utils/object.js';
 import { applyStateDelta } from './model.js';
 import { sceneViewers, visibleTo } from '../memory/policy.js';
@@ -30,9 +31,7 @@ export function prepareSimulation(post, delta, state, policy, texts) {
     }
     if (Object.hasOwn(input,'policy')) throw new Error('Simulation: Policy cannot be changed by the Director');
     for (const event of input.events || []) {
-        const evidence=event.evidence;
-        if (!evidence || !['rp','user_action'].includes(evidence.source) || typeof evidence.quote!=='string' || !evidence.quote.trim()
-            || !String(evidence.source==='rp' ? texts.rp : texts.user).includes(evidence.quote)) throw new Error('Simulation: Event evidence must quote the current turn');
+        event.evidence = resolveEvidence(event.evidence, texts);
     }
     if (!policy.characterEnabled) input.characters=[];
     if (!policy.relationshipsEnabled) input.relationships=[];

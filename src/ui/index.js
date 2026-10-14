@@ -1,3 +1,4 @@
+import { bindWorkflowLibrary } from './visualWorkflows.js';
 import { SIMULATION_DEFAULTS } from '../state/simulation.js';
 const DEFAULT_PROMPT_VARIANTS = Object.freeze({
     continuity: 'balanced',
@@ -13,6 +14,12 @@ const DEFAULT_PROMPT_VARIANTS = Object.freeze({
 const DEFAULT_UI_SETTINGS = Object.freeze({
     ...SIMULATION_DEFAULTS,
     showInternalState: false,
+    visualUserWorkflows: [], visualAnimaVariant: 'base', visualPositive: '', visualNegative: '',
+    visualIllustrationPolicy: 'significant',
+    visualLlmIntent: false, visualLocalExpressions: false, visualFaceDetector: '',
+    visualLayers: false, visualBackgroundWorkflow: 'background', visualSpriteWorkflow: '',
+    visualEndpoint: '', visualCheckpoint: '', visualPromptProfile: 'sdxl', visualCooldownMs: 15000,
+    visualStyle: '', visualCamera: '', visualTextEncoder: '', visualVae: '',
     visualEnabled: false, visualAutomatic: false, visualKeepSeed: true, visualPartial: false,
     visualWorkflow: 'scene_full', visualPartialWorkflow: '', visualStages: {controlnet:false,ipadapter:false,mask:false},
     enabled: false,
@@ -51,6 +58,7 @@ const PROFILE_DESCRIPTIONS = Object.freeze({
 });
 
 const NUMBER_SETTINGS = new Set([
+    'visualCooldownMs',
     'significanceThreshold','relationshipConfidence','relationshipMaxChange','repetitionThreshold','minTurnMinutes','maxTurnMinutes',
     'memoryWeights.semantic', 'memoryWeights.importance', 'memoryWeights.entities', 'memoryWeights.location', 'memoryWeights.recency', 'memoryWeights.old',
     'minimumConfidence', 'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'checkpointInterval',
@@ -216,6 +224,20 @@ function renderSettings(root, settings) {
     for (const control of root.querySelectorAll('[data-module]')) {
         control.checked = Boolean(settings[control.dataset.module]);
     }
+    const visualStatus = root.querySelector('[data-visual-mode]');
+    if (visualStatus) visualStatus.textContent = !settings.visualEnabled
+        ? 'Generation is off. You can configure and import workflows without using GPU.'
+        : settings.visualAutomatic ? 'Automatic generation is enabled. Scene updates may use GPU.' : 'Manual generation only. Images are created when you request them.';
+    for (const button of root.querySelectorAll('[data-requires-visual]')) button.disabled = !settings.visualEnabled;
+    for (const field of root.querySelectorAll('[data-anima-only]')) field.hidden = settings.visualPromptProfile !== 'anima';
+    for (const label of root.querySelectorAll('[data-workflow-name]')) {
+        const id = settings[label.dataset.workflowName];
+        const item = settings.visualUserWorkflows?.find(item => item.id === id);
+        label.textContent = item ? `${item.name} · ${item.recipe.operation}` : String(id || '').startsWith('user-') ? 'Imported workflow is missing. Choose another or import it again.' : '';
+        label.hidden = !label.textContent;
+    }
+    const modelLabel = root.querySelector('[data-model-label]');
+    if (modelLabel) modelLabel.textContent = settings.visualPromptProfile === 'anima' ? 'Diffusion model filename (models/diffusion_models)' : 'Checkpoint filename';
     const endpointField = root.querySelector('[data-provider-field="endpoint"]');
     if (endpointField) endpointField.hidden = settings.provider === 'sillytavern' || settings.provider === 'connectionProfile';
     const modelField = root.querySelector('[data-provider-field="model"]');
@@ -348,6 +370,8 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
         onSettingsChange(current, { path, value });
     };
 
+    bindWorkflowLibrary(panel, current, commit, signal);
+
     for (const control of panel.querySelectorAll('[data-setting]')) {
         control.addEventListener('change', () => commit(control.dataset.setting, readControlValue(control)), { signal });
     }
@@ -378,7 +402,7 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
         } catch (error) {
             setNotice(panel, error instanceof Error ? error.message : String(error), 'error');
         } finally {
-            button.disabled = false;
+            button.disabled = button.hasAttribute('data-requires-visual') && !current.visualEnabled;
             button.removeAttribute('aria-busy');
         }
     }, { signal });

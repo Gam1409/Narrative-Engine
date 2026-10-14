@@ -102,8 +102,18 @@
         "input": "steps",
         "source": "scene.characters.0.profile.genParams.steps",
         "default": 28
+      },
+      {
+        "node": "3",
+        "input": "text",
+        "source": "negative"
       }
     ],
-    "stages": {}
+    "stages": {},
+    "version": 1,
+    "checkpointBinding": {
+      "node": "1",
+      "input": "ckpt_name"
+    }
   }
 }
