@@ -86,7 +86,12 @@ export class VisualDirector {
         const prepared = await planning;
         scene.background = prepared.background;
         scene.backgroundId = prepared.background.id;
-        return intent && runtime.settings.visualLlmIntent
+        return intent ? this.directScene(scene, manager) : scene;
+    }
+
+    directScene(scene, manager) {
+        const runtime = this.runtime;
+        return runtime.settings.visualLlmIntent
             ? this.intentPlanner.prepare(scene, runtime.provider, runtime.settings.visualPromptProfile, manager.prefix, runtime.diagnostics)
             : scene;
     }
@@ -194,7 +199,9 @@ export class VisualDirector {
             }
             return { skipped: 'Latest scene deferred until cooldown ends' };
         }
-        const scene = backgroundOnly ? backgroundScene : await this.scene();
+        // Match the viewer's directed scene identity while retaining the manual
+        // background decision; another observation would replace its reason.
+        const scene = backgroundOnly ? await this.directScene(backgroundScene, manager) : await this.scene();
         if (!active()) return { skipped: 'Scene changed' };
         if (layers || backgroundOnly || (automatic && !illustrationTicket && settings.visualLayers)) {
             if (automatic) this.lastAutomaticAt = Date.now();

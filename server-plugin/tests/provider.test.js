@@ -35,3 +35,40 @@ test('unconfigured provider reports offline without throwing', async () => {
     assert.deepEqual(await provider.healthCheck(), { ok: false, configured: false });
     await assert.rejects(provider.complete({ messages: [{ role: 'user', content: 'x' }] }), /not configured/);
 });
+
+
+const http = require('node:http');
+const { requestJson } = require('../lib/provider');
+async function localServer(t, handler) {
+    const server = http.createServer(handler);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
+    return server.address().port;
+}
+test('real hostname transport supports Node all-address lookup and pinned DNS results', async t => {
+    const port = await localServer(t, (_req,res) => res.end('{"ok":true}'));
+    const controllers = new Set();
+    assert.deepEqual(await requestJson(new URL(`http://localhost:${port}`), {autoSelectFamily:true,agent:false}, undefined,
+        new Set(['127.0.0.1']), 2000, controllers), {ok:true});
+    assert.equal(controllers.size,0);
+    await assert.rejects(requestJson(new URL(`http://localhost:${port}`), {autoSelectFamily:true,agent:false}, undefined,
+        new Set(['203.0.113.1']), 2000, controllers), /DNS result changed/);
+    assert.equal(controllers.size,0);
+});
+test('mid-response disconnect rejects promptly and frees controllers instead of hanging', {timeout:3000}, async t => {
+    const port = await localServer(t, (_req,res) => {
+        res.writeHead(200, {'Content-Length':'100'}); res.write('{');
+        setTimeout(() => res.destroy(), 10);
+    });
+    const controllers = new Set();
+    await assert.rejects(requestJson(new URL(`http://127.0.0.1:${port}`), {}, undefined,
+        new Set(['127.0.0.1']), 1000, controllers), /aborted|closed|reset/i);
+    assert.equal(controllers.size,0);
+});
+test('stalled response timeout rejects and removes its controller', {timeout:3000}, async t => {
+    const port = await localServer(t, (_req,res) => {res.writeHead(200);res.write('{');});
+    const controllers = new Set();
+    await assert.rejects(requestJson(new URL(`http://127.0.0.1:${port}`), {}, undefined,
+        new Set(['127.0.0.1']), 50, controllers), /abort|timed out/i);
+    assert.equal(controllers.size,0);
+});

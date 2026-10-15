@@ -3,16 +3,23 @@
 const dns = require('node:dns').promises;
 const net = require('node:net');
 
-function isLoopback(address) {
-    const mapped = address.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-    return address === '::1' || address.startsWith('127.') || address === '0:0:0:0:0:0:0:1'
-        || Boolean(mapped && mapped.startsWith('127.'));
+// URL canonicalization also expands dotted IPv4-mapped IPv6 to hexadecimal.
+function canonicalAddress(address) {
+    const raw = String(address).toLowerCase().split('%')[0];
+    if (!net.isIPv6(raw)) return raw;
+    const normalized = new URL(`http://[${raw}]/`).hostname.slice(1,-1);
+    const mapped = normalized.match(/^::ffff:([a-f0-9]+):([a-f0-9]+)$/);
+    if (!mapped) return normalized;
+    const high = parseInt(mapped[1],16), low = parseInt(mapped[2],16);
+    return [high >>> 8, high & 255, low >>> 8, low & 255].join('.');
 }
-
+function isLoopback(address) {
+    const normalized = canonicalAddress(address);
+    return normalized === '::1' || net.isIPv4(normalized) && normalized.startsWith('127.');
+}
 function isBlockedAddress(address) {
+    address = canonicalAddress(address);
     if (isLoopback(address)) return false;
-    const mapped = address.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-    if (mapped) return isBlockedAddress(mapped);
     if (net.isIPv4(address)) {
         const octets = address.split('.').map(Number);
         return octets[0] === 0 || octets[0] === 10 || octets[0] === 127
@@ -21,11 +28,10 @@ function isBlockedAddress(address) {
             || (octets[0] === 192 && octets[1] === 168)
             || octets[0] >= 224;
     }
-    const normalized = address.toLowerCase().split('%')[0];
-    return normalized === '::' || normalized.startsWith('fc') || normalized.startsWith('fd')
-        || normalized.startsWith('fe8') || normalized.startsWith('fe9')
-        || normalized.startsWith('fea') || normalized.startsWith('feb')
-        || normalized.startsWith('ff');
+    return address === '::' || address.startsWith('fc') || address.startsWith('fd')
+        || address.startsWith('fe8') || address.startsWith('fe9')
+        || address.startsWith('fea') || address.startsWith('feb')
+        || address.startsWith('ff');
 }
 
 async function validateProviderUrl(rawUrl, allowHosts = new Set(), lookup = dns.lookup) {

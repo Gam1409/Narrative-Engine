@@ -1,3 +1,4 @@
+import { AUTONOMY_PRE_PROMPT } from './autonomy.js';
 import { loadPrompt } from './promptLoader.js';
 import { loadSchema } from './schemaLoader.js';
 import { parseAndValidateJson } from '../utils/json.js';
@@ -9,7 +10,7 @@ export class DirectorService {
     }
 
     async run(role, payload, { identity, signal, timeoutMs, maxTokens = 4096, promptAddendum = '' } = {}) {
-        const baseSystem = await loadPrompt(role);
+        const baseSystem = role === 'pre' && payload.rp_autonomy === true ? AUTONOMY_PRE_PROMPT : await loadPrompt(role);
         const system = promptAddendum ? `${baseSystem}\n\n${promptAddendum}` : baseSystem;
         const schema = await loadSchema(role);
         const request = {

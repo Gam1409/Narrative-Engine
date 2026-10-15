@@ -82,11 +82,16 @@ function buildWorkflow(recipe, input) {
             return Object.entries(graph).some(([id, node]) => {
                 if (!Object.values(node.inputs || {}).some((value) => Array.isArray(value) && value[0] === source))
                     return false;
-                return ['SaveImage', 'PreviewImage'].includes(node.class_type) || reachesOutput(id, seen);
+                // A preview branch cannot satisfy identity for a different output.
+                // Legacy recipes without outputNode retain output discovery.
+                const selected = recipe.outputNode
+                    ? id === String(recipe.outputNode)
+                    : ['SaveImage', 'PreviewImage'].includes(node.class_type);
+                return selected || reachesOutput(id, seen);
             });
         };
         for (const slot of (recipe.loraSlots || []).slice(0, loras.length)) {
-            if (!reachesOutput(slot)) fail('LoRA slot is disconnected from image outputs');
+            if (!reachesOutput(slot)) fail('LoRA slot is disconnected from the selected image output');
         }
     }
     if (input.checkpoint) {

@@ -238,7 +238,7 @@
         },
         {
           "file": "server-plugin/tests/storage.test.js",
-          "test": "G13 file migration backs up v1 before writing v2 and preserves legacy envelope"
+          "test": "G13 file migration backs up v1 before writing v3 and preserves legacy envelope"
         }
       ],
       "modelQualityVerified": false

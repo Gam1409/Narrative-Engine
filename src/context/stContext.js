@@ -49,7 +49,8 @@ function toParticipant(character) {
 export function resolveMessageSpeaker(message, context = getContext()) {
     if (!message || message.is_user) return { id: 'USER', name: context.name1 || 'User' };
     const avatar = message.original_avatar || message.force_avatar || '';
-    const character = context.characters?.find((item) => (avatar && item.avatar === avatar) || item.name === message.name);
+    const character = (avatar && context.characters?.find((item) => item.avatar === avatar))
+        || context.characters?.find((item) => item.name === message.name);
     return character ? toParticipant(character) : { id: String(avatar || message.name || 'UNKNOWN'), name: String(message.name || 'Unknown') };
 }
 

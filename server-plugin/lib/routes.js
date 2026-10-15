@@ -1,6 +1,9 @@
+const { eraseStoredMemory } = require('./memory-erase');
 'use strict';
 
 const crypto = require('node:crypto');
+const path = require('node:path');
+const { LoreStore, importWorldInfo } = require('./lore');
 const { assertObject, rateLimiter, safeJson, validateId } = require('./security');
 const { consolidateMemories, mergeState, searchMemories, selectSprite } = require('./services');
 
@@ -62,6 +65,25 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
     });
 
 
+    let lore;
+    const loreService = () => lore ||= new LoreStore(db.db,{fileRoot:path.join(config.storageRoot,'lore')});
+    const loreScope = req => scopeChatId(req, 'lore');
+    router.post('/lore/preview', asyncRoute(async (req,res) => {
+        const body=assertObject(req.body);
+        const id=validateId(body.libraryId);
+        res.json({...importWorldInfo(body.input, body.publicIds, {format:body.format,sourceName:body.sourceName,mappingProfile:body.mappingProfile}), revision:loreService().read(loreScope(req),id).revision,generation:loreService().generation(loreScope(req))});
+    }));
+    router.post('/lore/import', asyncRoute(async (req,res) => {
+        const body=assertObject(req.body);
+        res.json(loreService().save(loreScope(req),validateId(body.libraryId),body.input,body.publicIds,body.expectedRevision,{format:body.format,sourceName:body.sourceName,mappingProfile:body.mappingProfile,expectedGeneration:body.expectedGeneration}));
+    }));
+    router.post('/lore/retrieve', asyncRoute(async (req,res) => {
+        const body=assertObject(req.body);
+        res.json(loreService().retrieve(loreScope(req),validateId(body.libraryId),body.query,Math.min(1000,Math.max(50,Number(body.budget)||450)),body.context));
+    }));
+    router.post('/lore/export', asyncRoute(async(req,res)=>{const body=assertObject(req.body);res.json(loreService().export(loreScope(req),validateId(body.libraryId),body.kind));}));
+    router.get('/lore/:libraryId', asyncRoute(async (req,res) => res.json(loreService().read(loreScope(req),validateId(req.params.libraryId)))));
+
     const visualService = () => { if (!visuals) throw Object.assign(new Error('Visual service unavailable'),{status:503}); return visuals; };
     router.post('/visual/capabilities', asyncRoute(async (req, res) => {
         const body = assertObject(req.body);
@@ -106,7 +128,7 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
         if(!png&&!jpeg&&!webp)throw Object.assign(new Error('Unsupported image output'),{status:502});
         res.set('Content-Type',png?'image/png':jpeg?'image/jpeg':'image/webp');res.set('X-Content-Type-Options','nosniff');res.set('Cache-Control','private, no-store');res.send(bytes);
     }));
-    router.get('/health', asyncRoute(async (_req, res) => res.json({ ok: true, schemaVersion: 2, provider: await provider.healthCheck() })));
+    router.get('/health', asyncRoute(async (_req, res) => res.json({ ok: true, schemaVersion: 3, provider: await provider.healthCheck() })));
 
     for (const phase of ['pre', 'post', 'reconcile', 'visual']) {
         router.post(`/director/${phase}`, asyncRoute(async (req, res) => {
@@ -128,15 +150,33 @@ function buildRoutes(router, { config, db, provider, visuals, logger = console }
         }));
     }
 
+    let memoryEpoch=0;
+    router.post('/data/clear', asyncRoute(async(req,res)=>{
+        const body=assertObject(req.body);
+        if(!['session','all'].includes(body.scope) || !['memory','state','lore','all'].includes(body.kind) || body.confirm!=='DELETE')
+            throw Object.assign(new Error('Invalid cleanup request or missing confirmation'),{status:400});
+        if(['lore','all'].includes(body.kind) && body.scope!=='all') throw Object.assign(new Error('Lore cleanup applies to all user libraries'),{status:400});
+        const scoped=scopeChatId(req,body.chatId), prefix=scoped.slice(0,17);
+        let result={chatIds:[],chats:0};
+        if(body.kind!=='lore') result=eraseStoredMemory(db,prefix,body.scope==='session'?scoped:null,body.kind!=='memory');
+        memoryEpoch++;
+        if(['lore','all'].includes(body.kind)) {
+            const service=loreService();
+            service.clear(loreScope(req));
+        }
+        res.json(result);
+    }));
     router.post('/memory/embeddings', asyncRoute(async (req, res) => {
         const body = assertObject(req.body), scope = scopeChatId(req, body.chatId);
         if (!Array.isArray(body.texts) || !body.texts.length || body.texts.length > 64 || body.texts.some(t => typeof t !== 'string' || !t || t.length > 20000)) throw Object.assign(new Error('Invalid texts'), { status: 400 });
         const model = `${config.embeddingUrl}|${config.embeddingModel}`;
         if (!config.embeddingUrl || !config.embeddingModel) throw Object.assign(new Error('Embeddings not configured'), { status: 503 });
+        const epoch=memoryEpoch;
         const hashes = body.texts.map(t => crypto.createHash('sha256').update(t).digest('hex'));
         const cached = hashes.map(hash => db.db.prepare('SELECT vector_json,vector_blob FROM embedding_cache WHERE scope=? AND hash=? AND model=?').get(scope, hash, model));
         const missing = [...new Set(hashes.filter((_, i) => !cached[i]))];
         const fresh = missing.length ? await provider.embed(missing.map(hash => body.texts[hashes.indexOf(hash)])) : [];
+        if(epoch!==memoryEpoch) throw Object.assign(new Error('Memory cleared during embedding request'),{status:409});
         db.db.transaction(() => {
             const put = db.db.prepare('INSERT INTO embedding_cache(scope,hash,model,vector_json,vector_blob) VALUES (?,?,?,?,?) ON CONFLICT(scope,hash,model) DO NOTHING');
             missing.forEach((hash, i) => put.run(scope, hash, model, JSON.stringify(fresh[i]), Buffer.from(new Float32Array(fresh[i]).buffer)));

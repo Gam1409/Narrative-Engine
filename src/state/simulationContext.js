@@ -22,7 +22,7 @@ export function prepareSimulation(post, delta, state, policy, texts) {
     if ((post.relationship_delta || []).length || Object.keys(post.world_event_delta || {}).length) throw new Error('Simulation: Use causal simulation_delta for relationships and world events');
     if (delta.simulation) throw new Error('Simulation: Use top-level simulation_delta');
     for (const value of Object.values(delta.characters || {})) {
-        if (value && typeof value==='object' && ['profile','emotions','mood','body','appraisals','expectations','expressedVsFelt','pendingProcessing','motivation'].some(k=>Object.hasOwn(value,k))) throw new Error('Simulation: Use simulation_delta for internal state');
+        if (value && typeof value==='object' && ['profile','emotions','mood','body','appraisals','expectations','expressedVsFelt','pendingProcessing','motivation','development'].some(k=>Object.hasOwn(value,k))) throw new Error('Simulation: Use simulation_delta for internal state');
     }
     const input=clone(post.simulation_delta || {});
     if (policy.simulationLevel === 'minimal') {
@@ -63,6 +63,30 @@ export function innerLifeContext(state, participants, settings, viewers, target 
         const shorten=v=>typeof v==='string' ? v.slice(0,180) : Array.isArray(v) ? v.slice(0,2).map(shorten) : v && typeof v==='object' ? Object.fromEntries(Object.entries(v).filter(([,x])=>x!==undefined).map(([k,x])=>[k,shorten(x)])) : v;
         own={...shorten(own),characterId:recipient};
     }
+    if (own && settings.innerLifeMode!=='off' && c?.development) {
+        own.development=Object.values(c.development).map(d=>({id:d.id,description:d.description,context:d.context,status:d.status,
+            recentEvidence:d.evidence.slice(-3).map(e=>clone(e))}));
+    }
+    if (recipient && settings.relationships) {
+        const relationships=Object.values(state.relationships || {}).filter(r=>r.from===recipient &&
+            !['superseded','disputed'].includes(r.status) && visibleTo(r,[recipient])).map(r=>({
+                from:r.from,to:r.to,dimensions:clone(r.dimensions || {}),
+                recentChanges:(r.history || []).slice(-3).map(h=>({dimension:h.dimension,delta:h.delta,gameTime:h.gameTime,
+                    eventIds:(h.eventIds || []).filter(id=>visibleTo(state.simulation?.events?.[id],[recipient]))})),
+            }));
+        if (relationships.length) own={...(own || {characterId:recipient}),relationships};
+    }
+    if (own) {
+        own.rule='Private current context for this character only. Personal appraisals are subjective, not objective facts. Historical lore does not reset current feelings or relationships. Never dictate player actions or give others private knowledge.';
+        const causes=new Set([
+            ...(own.development || []).flatMap(d=>d.recentEvidence.map(e=>e.eventId)),
+            ...(own.emotions || []).map(e=>e.causeEventId),
+            ...(own.appraisals || []).map(a=>a.eventId),
+            ...(own.relationships || []).flatMap(r=>r.recentChanges.flatMap(h=>h.eventIds)),
+        ].filter(Boolean));
+        own.causes=[...causes].map(id=>state.simulation?.events?.[id]).filter(e=>e && e.status==='occurred' && visibleTo(e,[recipient]))
+            .map(e=>({id:e.id,summary:e.summary,gameTime:e.gameTime}));
+    }
     const events=Object.values(state.simulation?.events || {}).filter(e=>e.status==='occurred' && !e.resolved && visibleTo(e,viewers)).map(e=>({id:e.id,summary:e.summary,gameTime:e.gameTime}));
     return {own,observations,events};
 }
@@ -76,7 +100,7 @@ export function inspectionState(runtime) {
 }
 export function inspectionPacket(runtime) {
     const packet=runtime.diagnostics.lastPacket || '';
-    return runtime.settings.showInternalState ? packet : packet.replace(/PRIVATE CHARACTER GUIDANCE\n[\s\S]*?(?=\n\n[A-Z][A-Z ]+\n|\n\nWrite only|$)/g,'PRIVATE CHARACTER GUIDANCE\n[Hidden in author inspection]');
+    return runtime.settings.showInternalState ? packet : packet.replace(/(PRIVATE CHARACTER (?:GUIDANCE|MEMORY))\n[\s\S]*?(?=\n\n[A-Z][A-Z ]+\n|\n\nWrite only|$)/g,'$1\n[Hidden in author inspection]');
 }
 export function postSimulationState(state, policy) {
     const next=clone(state);

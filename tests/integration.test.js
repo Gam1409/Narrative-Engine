@@ -31,7 +31,7 @@ test('long chat retrieval returns the old relevant violin episode without a chat
         topics: index === 42 ? ['violin', 'talent_show'] : ['daily'], characters: index === 42 ? ['Wren'] : ['NPC'], importance: index === 42 ? 0.9 : 0.1,
     }));
     const result = retrieveMemories(memories, { message: 'Wren asks about the violin', characters: ['Wren'], topics: ['violin'] }, { topK: 6 });
-    assert.equal(result.length, 6);
+    assert.equal(result.length, 1);
     assert.equal(result[0].id, 'episode_42');
 });
 

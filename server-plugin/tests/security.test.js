@@ -28,3 +28,16 @@ test('address and identifier validation covers unsafe inputs', () => {
     assert.equal(validateId('chat:group-1'), 'chat:group-1');
     assert.throws(() => validateId('../escape'), /Invalid/);
 });
+
+
+test('SSRF blocks canonical hex and dotted IPv4-mapped IPv6 while retaining explicit allowlist', async () => {
+    for (const address of ['::ffff:169.254.169.254','::ffff:a9fe:a9fe','0:0:0:0:0:ffff:0a00:0001','::ffff:c0a8:101']) {
+        assert.equal(isBlockedAddress(address), true);
+        await assert.rejects(validateProviderUrl(`http://[${address}]/`), /protected network/);
+    }
+    await assert.rejects(validateProviderUrl('http://mapped.example/',new Set(),async()=>[{address:'::ffff:a00:1',family:6}]), /protected network/);
+    assert.equal(isBlockedAddress('::ffff:7f00:1'),false);
+    assert.equal(isBlockedAddress('::ffff:808:808'),false);
+    const accepted=await validateProviderUrl('http://[::ffff:a00:1]/',new Set(['::ffff:a00:1']));
+    assert.equal(accepted.explicitlyAllowed,true);
+});

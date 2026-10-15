@@ -81,14 +81,14 @@ export class StateManager {
     findAccepted(key) {
         return this.records.findLast(r => r.idempotencyKey === key && ['confirmed', 'reverted'].includes(latestStatus(this.decisions, r.deltaId)));
     }
-    async recordTurn(delta, ref, { confidence = 0.5, status = 'confirmed', audit = {}, memories = [] } = {}) {
+    async recordTurn(delta, ref, { confidence = 0.5, status = 'confirmed', audit = {}, memories = [], memorySceneKey = null } = {}) {
         if (!['confirmed', 'proposed', 'rejected'].includes(status)) throw new Error('Invalid initial decision');
         if (status === 'confirmed' && this.findAccepted(ref.idempotencyKey)) return 'confirmed';
         const supersedes = this.records.filter(r => r.idempotencyKey === ref.idempotencyKey && latestStatus(this.decisions, r.deltaId) === 'proposed').map(r => r.deltaId);
         const record = { supersedes, deltaId: crypto.randomUUID(), idempotencyKey: ref.idempotencyKey,
             messageIndex: ref.messageIndex, messageRef: clone(ref), delta: clone(delta),
             source: `message:${ref.messageIndex}`, confidence, at: new Date().toISOString(),
-            audit: clone(audit), memories: clone(memories) };
+            audit: clone(audit), memories: clone(memories), memorySceneKey };
         Object.assign(record, { chatFingerprint: this.chatFingerprint, sessionId: this.scope.sessionId, campaignId: this.scope.campaignId,
             recordedAt: record.at, gameTime: this.state.timeline?.date && this.state.timeline?.time ? `${this.state.timeline.date}T${this.state.timeline.time}` : null,
             ops: clone(delta.ops || []), evidence: typeof audit.evidence === 'string' ? audit.evidence : '' });

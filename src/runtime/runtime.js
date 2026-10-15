@@ -1,9 +1,16 @@
+import { retrieveMemories } from '../memory/retrieval.js';
+import { prepareTurnMemories } from '../memory/turn.js';
+import { consolidationBatch, memorySceneKey, hasPendingSceneTransition } from '../memory/consolidation.js';
+import { eraseMemoryCopies } from '../memory/erase.js';
+import { loreRequest, loreReferenceEntries } from '../lore/client.js';
+import { observeQuality, acceptedQualityTurns, advanceQualityNote, qualityHintCategory, qualitySceneKey } from '../director/quality.js';
+import { buildAutonomyPacket } from '../director/autonomy.js';
 import { buildEvidenceCatalog } from '../state/evidence.js';
 import { visualProfile } from '../visual/scene.js';
 import { VisualDirector } from '../visual/director.js';
 import { simulationPolicy, prepareSimulation, innerLifeContext, postSimulationState } from '../state/simulationContext.js';
 import { pendingReactions } from '../state/simulation.js';
-import { normalizeMemory, projectState, sceneViewers } from '../memory/policy.js';
+import { projectState, sceneViewers, audienceMemories, eligibleMemory } from '../memory/policy.js';
 import { textHash } from '../memory/semantic.js';
 import { VectorSearch } from '../memory/vectorSearch.js';
 import { configureSession } from '../memory/session.js';
@@ -91,7 +98,7 @@ export class NarrativeRuntime {
         return this.enqueue(() => this.loadChatNow(context));
     }
 
-    async loadChatNow(context = getContext()) {
+    async loadChatNow(context = getContext(), {resumeVisual=true} = {}) {
         if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
         this.context = context;
         this.stateReady = false;
@@ -120,7 +127,8 @@ export class NarrativeRuntime {
         for (const result of manifests) if (result.status === 'rejected') this.diagnostics.error(result.reason, 'sprite-manifest');
         this.processed.clear();
         this.activeGenerationId = null;
-        this.diagnostics.update({ lastPacket: '', retrievedMemories: [] });
+        this.qualityNote = null;
+        this.diagnostics.update({ lastPacket: '', retrievedMemories: [], packetAssembly: null, rpTextStatus: null, narrativeQuality: null, loreStatus: null });
         if (this.settings.enabled) {
             await this.stateManager.selectBranch(await branchReferences(context, Infinity, this.stateManager.canonVersion));
             this.memoryStore.items = this.stateManager.memories;
@@ -129,8 +137,53 @@ export class NarrativeRuntime {
         this.visualDirector=new VisualDirector(this);
         try {this.spriteManifests.visualProfiles=await this.visualDirector.profiles();}
         catch(error) {this.spriteManifests.visualProfiles={};this.diagnostics.error(error,'visual');}
-        if(this.settings.visualEnabled)this.visualDirector.resume().catch(error=>this.diagnostics.error(error,'visual'));
+        if(resumeVisual && this.settings.visualEnabled)this.visualDirector.resume().catch(error=>this.diagnostics.error(error,'visual'));
         await this.persistCompactMetadata(context);
+    }
+
+    async clearData(kind, scope) {
+        if(!['memory','state','lore','all'].includes(kind) || !['session','all'].includes(scope)) throw Error('Invalid cleanup');
+        const context=getContext(), fingerprint=getChatFingerprint(context);
+        this.gate.invalidate();
+        return this.enqueue(async()=>{
+            if(getChatFingerprint(getContext())!==fingerprint)throw Error('Chat changed; repeat cleanup');
+            const server=this.storage instanceof ServerStorageAdapter;
+            if(server && this.storage.degraded)throw Error('Reconnect storage before deleting server data');
+            if(server)await Promise.all([...this.storage.queues.values()]);
+            // Server deletion also handles embedding caches used with local state storage.
+            let result={chatIds:[]};
+            let serverCleared=false;
+            try {
+                const response=await fetch('/api/plugins/narrative-engine/data/clear',{
+                    method:'POST',headers:{'Content-Type':'application/json',...(context.getRequestHeaders?.() || {})},
+                    body:JSON.stringify({kind:!server && kind==='state'?'memory':kind,scope,chatId:fingerprint,confirm:'DELETE'}),
+                });
+                if(!response.ok)throw Error(`Cleanup failed (HTTP ${response.status}); some data may have been removed. Refresh before retrying.`);
+                result=await response.json();
+                serverCleared=true;
+            } catch(error) {
+                if(server || this.settings.embeddingSearch || ['lore','all'].includes(kind))throw error;
+            }
+            if(kind!=='lore') {
+                if(server) {
+                    const affected=new Set([...(result.chatIds || []),fingerprint]);
+                    for(const key of await this.storage.fallback.keys()) {
+                        const match=key.match(/^narrative-engine-cache:narrative-engine:(ne-[a-f0-9]+):/);
+                        if(match && affected.has(match[1]))await this.storage.fallback.removeItem(key);
+                    }
+                } else {
+                    for(const key of await this.storage.keys()) {
+                        const match=key.match(/^narrative-engine:(ne-[a-f0-9]+):(.+)$/);
+                        if(!match || scope==='session' && match[1]!==fingerprint)continue;
+                        if(kind==='memory')await this.storage.setItem(key,eraseMemoryCopies(await this.storage.getItem(key),match[2]));
+                        else await this.storage.removeItem(key);
+                    }
+                }
+                await this.loadChatNow(context,{resumeVisual:false});
+            }
+            this.diagnostics.update({lastPacket:'',retrievedMemories:[],loreStatus:null});
+            return serverCleared ? 'Cleanup completed. Chat messages and generated images were not deleted.' : 'Local cleanup completed. Server cleanup was unavailable; server data may remain.';
+        });
     }
 
     recreateProvider(context = getContext()) {
@@ -148,7 +201,16 @@ export class NarrativeRuntime {
 
     updateSettings(patch) {
         const previousProvider = this.settings.provider;
+        const previousAutonomy = this.settings.rpAutonomy;
+        const previousLore = [this.settings.loreEnabled, this.settings.loreLibraryId];
+        const previousQuality = [this.settings.antiSlopMode, this.settings.qualityWindow];
         this.settings = saveSettings(getContext(), { ...this.settings, ...patch });
+        if (previousLore[0] !== this.settings.loreEnabled || previousLore[1] !== this.settings.loreLibraryId || previousAutonomy !== this.settings.rpAutonomy || previousQuality[0] !== this.settings.antiSlopMode || previousQuality[1] !== this.settings.qualityWindow) {
+            this.gate.invalidate();
+            this.diagnostics.update({ lastPacket: '', packetAssembly: null, rpTextStatus: null, narrativeQuality: null, loreStatus: null });
+        }
+        if (previousLore[0] !== this.settings.loreEnabled || previousLore[1] !== this.settings.loreLibraryId || previousAutonomy !== this.settings.rpAutonomy || previousQuality[0] !== this.settings.antiSlopMode || previousQuality[1] !== this.settings.qualityWindow) this.qualityNote = null;
+        this.diagnostics.update({ narrativeQuality: null });
         this.stateManager.checkpointEvery = this.settings.checkpointInterval;
         this.recreateProvider(getContext());
         if (previousProvider !== this.settings.provider && (previousProvider === 'server' || this.settings.provider === 'server')) {
@@ -182,6 +244,8 @@ export class NarrativeRuntime {
         const current = this.stateManager.snapshot();
         const lastUser = [...(context.chat || [])].reverse().find((message) => message?.is_user);
         const viewers = sceneViewers(current, this.participants);
+        const recipient = resolveGenerationRecipient(context, type);
+        const recipientId = recipient ? sceneViewers({...current,scene:{present:[]}}, [recipient])[0] : null;
         const safeState = projectState(current, viewers);
         const query = {
             message: String(lastUser?.mes || ''),
@@ -192,6 +256,7 @@ export class NarrativeRuntime {
         const searchOptions = { topK: this.settings.memoryTopK, tokenBudget: Math.floor(this.settings.packetTokenBudget / 2),
             policy: { ...this.stateManager.scope, viewers, through: current.timeline?.date && current.timeline?.time ? `${current.timeline.date}T${current.timeline.time}` : undefined },
             now: current.timeline?.date ? Date.parse(`${current.timeline.date}T${current.timeline.time || '00:00'}:00Z`) : 0,
+            availability: { enabled: this.settings.memoryAvailability, halfLifeDays: this.settings.memoryAvailabilityHalfLifeDays },
             weights: this.settings.memoryWeights, signal: token.signal };
         let memories = this.settings.memoryRetrieval ? this.memoryStore.search(query, searchOptions) : [];
         this.diagnostics.update({ retrievalMode: 'lexical_degraded' });
@@ -202,12 +267,28 @@ export class NarrativeRuntime {
             } catch (error) { if (this.gate.isCurrent(token)) this.diagnostics.update({ retrievalMode: 'lexical_degraded', embeddingError: error.message }); }
         }
         if (!this.gate.isCurrent(token)) { this.gate.finish(token); return null; }
-        const recipient = resolveGenerationRecipient(context, type);
+        const qualityCategory = this.settings.antiSlopMode === 'soft' && this.settings.rpAutonomy ? qualityHintCategory(this.qualityNote, qualitySceneKey(current)) : null;
         const innerContext = innerLifeContext(current, this.participants, this.settings, viewers, recipient);
+        if (recipientId && this.settings.memoryRetrieval) {
+            const privateOptions = {...searchOptions, personal: innerContext.own, tokenBudget: Math.floor(this.settings.packetTokenBudget / 4), policy:{...searchOptions.policy,viewers:[recipientId]}};
+            const sharedIds = new Set(memories.map(m => m.id));
+            const privateItems = audienceMemories(this.memoryStore.items,privateOptions.policy).filter(m => !sharedIds.has(m.id));
+            const privateMemories = new EpisodicMemoryStore();
+            privateMemories.items = privateItems;
+            let selected = privateMemories.search(query, privateOptions);
+            if (this.settings.embeddingSearch && privateItems.some(m => eligibleMemory(m, privateOptions.policy))) {
+                try { selected = await new VectorSearch(context, this.stateManager.chatFingerprint).search(privateItems, query, privateOptions); }
+                catch (error) { if (!this.gate.isCurrent(token)) { this.gate.finish(token); return null; } }
+            }
+            if (!this.gate.isCurrent(token)) { this.gate.finish(token); return null; }
+            selected = selected.filter(m => !sharedIds.has(m.id));
+            if (selected.length) innerContext.privateMemories = {characterId:recipientId,rule:'Private recollections for this character only. They do not establish shared knowledge or current canonical facts.',entries:selected};
+        }
         const turn = (context.chat || []).filter((message) => message?.is_user).length;
         const dueEvents = Object.values(safeState.world_events || {}).some((event) => event?.status === 'due');
         const payload = {
             identity, generation_type: type, context_size: contextSize,
+            rp_autonomy: this.settings.rpAutonomy === true,
             latest_user_message: String(lastUser?.mes || ''),
             recent_messages: [], // Unannotated past RP text is not an authority for another character's knowledge.
             state: safeState,
@@ -221,7 +302,7 @@ export class NarrativeRuntime {
                 knowledge: this.settings.knowledge,
                 plot_manager: this.settings.plotManager,
                 world_simulation: this.settings.worldSimulation,
-                scene_planner: true,
+                scene_planner: !this.settings.rpAutonomy,
             },
             character_director_hints: {}, // Private card hints stay out of the shared generation packet.
             cadence: {
@@ -231,21 +312,46 @@ export class NarrativeRuntime {
             truth_priority: ['explicit user action', 'recent accepted chat', 'structured state', 'character/world canon', 'episodic memory', 'director inference'],
             user_agency: 'Never invent voluntary user actions, thoughts, dialogue, choices, or decisions.',
         };
+        let lore = [];
         try {
-            const promptAddendum = await loadStatePromptBundle(this.settings, 'pre');
+            if (this.settings.loreEnabled && this.settings.rpAutonomy) {
+                try {
+                    const result = await loreRequest(context, 'retrieve', { libraryId: this.settings.loreLibraryId,
+                        query: [String(lastUser?.mes || '').slice(0,8000), safeState.scene?.location || ''].join(' '),
+                        budget: Math.floor(this.settings.packetTokenBudget * 0.3),
+                        context:{location:safeState.scene?.location,present:safeState.scene?.present,time:safeState.timeline?.time} }, token.signal);
+                    this.gate.assertCurrent(token);
+                    lore = loreReferenceEntries(result.entries, safeState);
+                    payload.world_lore_reference = lore;
+                    this.diagnostics.update({ loreStatus: { status: 'retrieved', libraryId: this.settings.loreLibraryId, revision: result.revision, selectedIds: lore.map(e=>e.id),
+                        divergences: lore.flatMap(e => (e.stateOverrides || []).map(item => ({entryId:e.id,...item}))),
+                        selection: Array.isArray(result.selection) ? result.selection.slice(0,500).filter(e=>typeof e?.id==='string' && ['full','summary','omitted'].includes(e.mode)).map(e=>({id:e.id,mode:e.mode,...(['budget','always_budget','entry_limit'].includes(e.reason)?{reason:e.reason}:{})})) : [] } });
+                } catch (error) {
+                    this.gate.assertCurrent(token);
+                    this.diagnostics.update({ loreStatus: { status: 'unavailable', error: String(error.message).slice(0,200) } });
+                }
+            } else this.diagnostics.update({ loreStatus: { status: this.settings.loreEnabled ? 'requires_rp_autonomy' : 'off' } });
+            const promptAddendum = this.settings.rpAutonomy ? '' : await loadStatePromptBundle(this.settings, 'pre');
             const pre = await this.director.run('pre', payload, {
                 identity, signal: token.signal, timeoutMs: this.settings.preDirectorTimeoutMs, promptAddendum,
             });
             this.gate.assertCurrent(token);
             if ((resolveGenerationRecipient(getContext(), type)?.id || null) !== (recipient?.id || null)) throw new Error('Stale generation recipient');
-            const packet = buildDirectorPacket({ ...pre, inner_life: innerContext.own, observations: innerContext.observations, due_world_events: innerContext.events, relevant_memories: memories, active_threads: Object.values(safeState.threads),
+            const autonomy = this.settings.rpAutonomy ? buildAutonomyPacket({ state: safeState, pre, inner: innerContext, memories, qualityCategory, lore }, this.settings.packetTokenBudget) : null;
+            const packet = autonomy ? autonomy.packet : buildDirectorPacket({ ...pre, inner_life: innerContext.own, private_memories: innerContext.privateMemories, observations: innerContext.observations, due_world_events: innerContext.events, relevant_memories: memories, active_threads: Object.values(safeState.threads),
                 character_states: Object.fromEntries(Object.entries(pre.character_states || {}).filter(([id]) => viewers.includes(id))) }, this.settings.packetTokenBudget);
-            this.diagnostics.update({ status: 'generating', lastPacket: packet, retrievedMemories: memories });
+            this.diagnostics.update({ status: autonomy?.diagnostics.overflow ? 'degraded' : 'generating', lastPacket: packet || '', packetAssembly: autonomy?.diagnostics || null, retrievedMemories: memories });
             return packet;
         } catch (error) {
             if (this.gate.isCurrent(token)) {
                 this.diagnostics.error(error, 'pre');
-                this.diagnostics.update({ status: 'degraded', lastPacket: '' });
+                if (this.settings.rpAutonomy && getChatFingerprint(getContext()) === getChatFingerprint(context)
+                    && (resolveGenerationRecipient(getContext(), type)?.id || null) === (recipient?.id || null)) {
+                    const fallback = buildAutonomyPacket({ state: safeState, inner: innerContext, memories, qualityCategory, lore }, this.settings.packetTokenBudget);
+                    this.diagnostics.update({ status: 'degraded', lastPacket: fallback.packet || '', packetAssembly: { ...fallback.diagnostics, directorUnavailable: true } });
+                    return fallback.packet;
+                }
+                this.diagnostics.update({ status: 'degraded', lastPacket: '', packetAssembly: null });
             }
             return null;
         } finally {
@@ -272,7 +378,22 @@ export class NarrativeRuntime {
             if (!accepted) break;
         }
         if (this.stateManager === manager && getChatFingerprint(context) === getChatFingerprint(getContext())) {
-            await manager.selectBranch(await branchReferences(context, through, manager.canonVersion));
+            const qualityChat = (context.chat || []).map(m => ({ ...m }));
+            const qualitySignature = JSON.stringify(qualityChat);
+            const currentRefs = await branchReferences({ ...context, chat: qualityChat }, through, manager.canonVersion);
+            await manager.selectBranch(currentRefs);
+            if (this.stateManager !== manager || getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
+            let narrativeQuality = null;
+            if (['observe', 'soft'].includes(this.settings.antiSlopMode) && JSON.stringify(context.chat || []) === qualitySignature) {
+                const turns = acceptedQualityTurns(qualityChat, currentRefs, manager);
+                narrativeQuality = observeQuality(turns, this.settings.qualityWindow);
+                narrativeQuality.mode = this.settings.antiSlopMode;
+                this.qualityNote = this.settings.antiSlopMode === 'soft' && this.settings.rpAutonomy
+                    ? advanceQualityNote(this.qualityNote, narrativeQuality, turns.map(t => t.ref), qualitySceneKey(manager.snapshot())) : null;
+                narrativeQuality.feedback = this.qualityNote ? { ...this.qualityNote, sceneKey: undefined } : null;
+                if (this.settings.antiSlopMode === 'soft' && !this.settings.rpAutonomy) narrativeQuality.feedbackDisabled = 'Enable RP model autonomy for soft feedback; observation only.';
+            } else this.qualityNote = null;
+            this.diagnostics.update({ narrativeQuality });
             this.memoryStore.items = manager.memories;
             this.diagnostics.update({ status: manager.pending.length ? 'pending_reconciliation' : 'ready' });
             await this.persistCompactMetadata(context);
@@ -309,11 +430,22 @@ export class NarrativeRuntime {
             memory_scope: manager.scope, memory_audience_ids: sceneViewers(stateBefore, this.participants),
             user_message: String(lastUser?.mes || ''), rp_response: String(message.mes || ''),
             timeline: stateBefore.timeline, active_threads: stateBefore.threads,
-            consolidate_memory: shouldRunMemoryConsolidation({ messageCount: messageIndex + 1, interval: this.settings.memoryConsolidationInterval }),
+            collect_memory: this.settings.memoryRetrieval,
+            consolidate_memory: shouldRunMemoryConsolidation({ messageCount: manager.deltas.filter(d => d.source !== 'author' && d.messageIndex >= 0).length + 1, interval: this.settings.memoryConsolidationInterval, sceneChanged: hasPendingSceneTransition(manager.deltas, stateBefore) }),
             audit_mode: auditMode, sprite_director: this.settings.spriteDirector,
             sprite_candidates: this.settings.spriteDirector ? { [speaker]: this.spriteManifests.candidatesFor(speaker, stateBefore, 20) } : {},
             user_agency: 'Never assign voluntary actions or internal states to the player. NPC internal states require character-consistent evidence, not a player assertion.',
         };
+        payload.consolidation_sources = payload.collect_memory && payload.consolidate_memory
+            ? consolidationBatch(manager.memories, { scope: manager.scope, viewers: payload.memory_audience_ids, tokenBudget: this.settings.memoryConsolidationTokenBudget }) : [];
+        payload.memory_link_sources = payload.collect_memory ? retrieveMemories(manager.memories, {
+            message: payload.rp_response, location: stateBefore.scene?.location,
+            characters: payload.memory_audience_ids,
+        }, {
+            policy: { ...manager.scope, viewers: payload.memory_audience_ids, mode: 'session_only',
+                through: stateBefore.timeline?.date && stateBefore.timeline?.time ? `${stateBefore.timeline.date}T${stateBefore.timeline.time}` : undefined },
+            topK: 8, tokenBudget: Math.min(1000, this.settings.memoryConsolidationTokenBudget), associationLimit: 0,
+        }) : [];
         try {
             payload.evidence_catalog = await buildEvidenceCatalog({rp: payload.rp_response, user: payload.user_message});
             await assertCurrent();
@@ -346,7 +478,7 @@ export class NarrativeRuntime {
             let post = await this.director.run('post', payload, { identity, signal: token.signal, timeoutMs: this.settings.postDirectorTimeoutMs, promptAddendum });
             await assertCurrent();
             post = await validateWithRepair(post);
-            if (!post.audit.valid && auditMode === 'strict' && highSeverity(post.audit)) {
+            if (!post.audit.valid && auditMode === 'strict' && !this.settings.rpAutonomy && highSeverity(post.audit)) {
                 this.diagnostics.recordStrictRewrite();
                 const rewritten = await this.rewriteOnce(payload, post.audit, identity, token.signal);
                 await assertCurrent();
@@ -368,19 +500,22 @@ export class NarrativeRuntime {
             const confidence = Number.isFinite(post.confidence) ? post.confidence : 0.5;
             // A disputed extraction remains one atomic proposal, including typed operations.
             let status = !post.audit.valid || confidence < this.settings.minimumConfidence ? 'proposed' : 'confirmed';
-            const normalizedMemories = this.settings.memoryRetrieval ? await Promise.all((post.memory_candidates || []).filter(m => typeof (m?.summary || m?.text) === 'string' && (m.summary || m.text)).map(async m => {
-                    const memory = normalizeMemory(m, { ...manager.scope, gameTime: stateBefore.timeline?.date && stateBefore.timeline?.time ? `${stateBefore.timeline.date}T${stateBefore.timeline.time}` : null });
-                    memory.embeddingHash = await textHash(memory.text); return memory;
-                })) : [];
+            const normalizedMemories = this.settings.memoryRetrieval ? await prepareTurnMemories(post.memory_candidates, {
+                scope: manager.scope,
+                gameTime: stateBefore.timeline?.date && stateBefore.timeline?.time ? `${stateBefore.timeline.date}T${stateBefore.timeline.time}` : null,
+                sources: payload.consolidation_sources, linkSources: payload.memory_link_sources,
+                viewers: payload.memory_audience_ids,
+                texts: { rp: payload.rp_response, user: payload.user_message, evidenceCatalog: payload.evidence_catalog },
+            }) : [];
             await assertCurrent();
             const delta = status === 'confirmed' ? prepareSimulation(post, combineDelta(post, this.settings), stateBefore, payload.simulation_policy, {rp:payload.rp_response,user:payload.user_message,evidenceCatalog:payload.evidence_catalog}) : {...combineDelta(post,this.settings), ...(post.simulation_delta ? {simulation: {...post.simulation_delta, policy:payload.simulation_policy}} : {})};
             status = await manager.recordTurn(delta, { ...ref, generationId: identity.generationId, requestId: identity.requestId }, {
                 confidence, status, audit: post.audit,
-                memories: normalizedMemories,
+                memories: normalizedMemories, memorySceneKey: memorySceneKey(stateBefore),
             });
             await assertCurrent();
             this.memoryStore.items = manager.memories;
-            this.diagnostics.update({ lastAudit: post.audit });
+            this.diagnostics.update({ lastAudit: post.audit, rpTextStatus: this.settings.rpAutonomy ? { text: 'unchanged', state: status, revision: 'not attempted', action: status === 'confirmed' ? 'none' : 'Review the audit and manually regenerate in SillyTavern if needed. Displayed RP text has not been corrected.' } : null });
             if (status !== 'confirmed') return false;
             message.extra ||= {};
             message.extra.narrative_engine = { messageId: ref.messageId, swipeId: ref.swipeId,
@@ -407,6 +542,7 @@ export class NarrativeRuntime {
     }
 
     async rewriteOnce(payload, audit, identity, signal) {
+        if (this.settings.rpAutonomy) return null;
         const result = await this.director.run('reconcile', {
             state_before: payload.state_before,
             user_message: payload.user_message,
@@ -419,8 +555,10 @@ export class NarrativeRuntime {
     }
 
     markDirtyAndRebuild(messageIndex = 0, { canonChanged = false } = {}) {
+        this.qualityNote = null;
         const context = getContext();
         this.gate.invalidate();
+        this.diagnostics.update({ lastPacket: '', packetAssembly: null, rpTextStatus: null, narrativeQuality: null, loreStatus: null });
         return this.enqueue(async () => {
             if (getChatFingerprint(context) !== getChatFingerprint(getContext())) return;
             if (canonChanged) await this.stateManager.commit({ canonVersion: this.stateManager.canonVersion + 1 });

@@ -427,9 +427,11 @@ test('manual background refresh bypasses automatic cooldown without submitting s
 
 test('concurrent inspection cannot roll back a manual background selection',async t=>{
  const {director}=fixture(t,async()=>{});
- await director.scene({intent:false});
+ const initial=await director.scene({intent:false});
  const [inspection,manual]=await Promise.all([director.scene({intent:false}),director.scene({intent:false,forceBackground:true})]);
- assert.notEqual(inspection.background.id,manual.background.id);
+ assert.notEqual(initial.background.id,manual.background.id);
+ // Async scene hashing can enqueue inspection before or after manual planning.
+ assert.ok([initial.background.id,manual.background.id].includes(inspection.background.id));
  assert.equal((await director.scene({intent:false})).background.id,manual.background.id);
 });
 
@@ -616,4 +618,32 @@ test('30-turn client-to-SQLite story reuses the room and submits only one signif
     const counts=queue.metrics(scope).counts;
     assert.equal(counts.background.submitted,1);assert.equal(counts.background.reused,29);
     assert.equal(counts.illustration.submitted,1);assert.equal(counts.illustration.completed,1);
+});
+
+
+test('background-only refresh with LLM intent publishes a current scene without sprite jobs', async t => {
+    const posts = [];
+    let intentCalls = 0;
+    const {director, runtime, context} = fixture(t, async (_url, options) => {
+        const body = JSON.parse(options.body);
+        posts.push(body);
+        return {ok:true, json:async()=>({id:'new-background', status:'done', scene:body.scene,
+            asset:{id:'background-asset', resourceKey:'b'.repeat(64)}, outputs:[]})};
+    });
+    Object.assign(runtime.settings, {visualLlmIntent:true, visualSpriteWorkflow:'sprite_integrated'});
+    runtime.provider = {complete:async()=>{
+        intentCalls++;
+        return {content:JSON.stringify({camera:'preserve', characters:[{
+            id:'Anna', eyes:'preserve', brows:'preserve', mouth:'preserve', cheeks:'preserve',
+        }]})};
+    }};
+    const result = await director.request({backgroundOnly:true, forceBackground:true});
+    assert.equal(result.operation, 'layers');
+    assert.deepEqual(posts.map(p=>p.operation), ['background']);
+    assert.equal(posts[0].backgroundManual, true);
+    assert.equal(intentCalls, 1);
+    const scene = await director.scene();
+    const composition = context.chatMetadata.narrative_engine_layers;
+    assert.equal(composition.sceneId, scene.sceneId);
+    assert.equal(composition.layers[0].assetId, 'background-asset');
 });

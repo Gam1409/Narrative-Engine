@@ -260,7 +260,7 @@ for (const auditMode of ['off','soft','strict']) test(`G3 PRE and packet exclude
 test('semantic provider outage degrades to filtered Unicode memory and still builds PRE', async t => {
     const { runtime } = await fixture(t); await runtime.processPost(1);
     runtime.settings.embeddingSearch = true;
-    runtime.memoryStore.items = [{ id: 'visible', text: 'public violin', summary: 'public violin', visibleTo: ['*'], status: 'current', ...runtime.stateManager.scope }];
+    runtime.memoryStore.items = [{ id: 'visible', entities:['Anna'], text: 'public violin', summary: 'public violin', visibleTo: ['*'], status: 'current', ...runtime.stateManager.scope }];
     // reconcile restores its journal projection, so store a public memory in the imported baseline.
     const base = { messageIndex: -1, state: runtime.stateManager.checkpoints.find(p => p.messageIndex === -1)?.state || new StateManager().snapshot(), memories: runtime.memoryStore.items };
     await runtime.stateManager.commit({ checkpoints: [base] });
@@ -394,4 +394,257 @@ test('POST resolves engine evidence references before journal persistence and re
     const before = runtime.stateManager.snapshot();
     await runtime.loadChat(context);
     assert.deepEqual(runtime.stateManager.snapshot(), before);
+});
+
+
+test('RP autonomy strict audit keeps displayed prose and disputed state without Director rewrite', async t => {
+    const { runtime, context } = await fixture(t);
+    runtime.settings.rpAutonomy = true;
+    runtime.settings.auditMode = 'strict';
+    const roles = [];
+    runtime.director.run = async role => {
+        roles.push(role);
+        return { audit: { valid: false, errors: [{ severity: 'high', message: 'Impossible movement' }] }, confidence: 0.9, state_delta: {}, replacement: 'ILLEGAL REPLACEMENT' };
+    };
+    await runtime.processPost(1);
+    assert.deepEqual(roles, ['post']);
+    assert.equal(context.chat[1].mes, 'takes sword');
+    assert.equal(runtime.stateManager.state.revision, 0);
+    assert.equal(latestStatus(runtime.stateManager.decisions, runtime.stateManager.records[0].deltaId), 'proposed');
+    assert.equal(runtime.diagnostics.rpTextStatus.text, 'unchanged');
+    assert.equal(await runtime.rewriteOnce({}, {}, {}, undefined), null);
+});
+
+test('autonomy PRE uses filtered canon and ignores invented constraints in a group scene', async t => {
+    const { runtime } = await fixture(t);
+    runtime.settings.rpAutonomy = true;
+    await runtime.stateManager.applyDelta({ scene: { present: ['Anna','C'] }, knowledge: { secret: { truth: 'HIDDEN_SECRET', visibleTo: ['Anna'] }, public: { truth: 'OPEN_FACT', visibleTo: ['*'] } } }, { messageIndex: -1 });
+    await runtime.processPost(1);
+    runtime.director.run = async (role, payload, options) => {
+        assert.equal(payload.roles.scene_planner, false);
+        assert.equal(payload.rp_autonomy, true);
+        assert.equal(options.promptAddendum, '');
+        assert.doesNotMatch(JSON.stringify(payload), /HIDDEN_SECRET/);
+        return { must_preserve: ['INVENTED'], scene_plan: { beats: ['Anna must leave'] }, scene_observation: { phase: 'resolving', confidence: 0.9 } };
+    };
+    const packet = await runtime.preparePacket([], 4096, 'normal');
+    assert.match(packet, /OPEN_FACT/);
+    assert.doesNotMatch(packet, /HIDDEN_SECRET|INVENTED|Anna must leave/);
+    assert.equal(runtime.diagnostics.snapshot().packetAssembly.mode, 'rp_autonomy');
+});
+
+
+test('autonomy Director outage keeps canonical context without a soft observation', async t => {
+    const { runtime } = await fixture(t);
+    runtime.settings.rpAutonomy = true;
+    await runtime.stateManager.applyDelta({ scene: { location: 'known-room' } }, { messageIndex: -1 });
+    await runtime.processPost(1);
+    runtime.director.run = async () => { throw new Error('offline'); };
+    const packet = await runtime.preparePacket([], 4096, 'normal');
+    assert.match(packet, /known-room/);
+    assert.doesNotMatch(packet, /SOFT OBSERVATIONS/);
+    assert.equal(runtime.diagnostics.packetAssembly.directorUnavailable, true);
+});
+
+test('autonomy delayed PRE cannot publish after recipient changes', async t => {
+    const { runtime, context } = await fixture(t);
+    runtime.settings.rpAutonomy = true;
+    context.characters.push({name:'Bob',avatar:'Bob.png'});
+    context.groupId='g';context.groups=[{id:'g',members:['Anna.png','Bob.png'],chat_id:'group-chat'}];
+    context.chat=[];context.characterId=0;await runtime.loadChat(context);
+    runtime.director.run=async()=>{context.characterId=1;return {scene_observation:{phase:'resolving',confidence:1}};};
+    assert.equal(await runtime.preparePacket([],4096,'normal'),null);
+    assert.equal(runtime.diagnostics.lastPacket,'');
+});
+
+
+test('quality observe leaves PRE packet and accepted canon unchanged and resets on history edit', async t => {
+ const {runtime,context}=await fixture(t);
+ await runtime.processPost(1);
+ const before=JSON.stringify(runtime.stateManager.snapshot());
+ runtime.director.run=async()=>({scene:{},must_preserve:[],character_states:{},active_threads:[],scene_plan:{},user_agency:[]});
+ const off=await runtime.preparePacket([],4096,'normal');
+ runtime.settings.antiSlopMode='observe';
+ const observed=await runtime.preparePacket([],4096,'normal');
+ assert.equal(observed,off);
+ assert.equal(JSON.stringify(runtime.stateManager.snapshot()),before);
+ assert.equal(runtime.diagnostics.narrativeQuality.sampled,1);
+ assert.equal(context.chat[1].mes,'takes sword');
+ context.chat=[];
+ await runtime.markDirtyAndRebuild(0);
+ assert.equal(runtime.diagnostics.narrativeQuality.sampled,0);
+ runtime.settings.antiSlopMode='off';
+ await runtime.reconcile(context);
+ assert.equal(runtime.diagnostics.narrativeQuality,null);
+});
+
+
+test('soft feedback reaches RP packet only with autonomy and never changes accepted state', async t => {
+ const {runtime,context}=await fixture(t);
+ const prose='She carefully set the cup beside the window and folded her hands. Outside the rain continued to fall on the empty street, while the room stayed quiet.';
+ context.chat=[];
+ for(let i=0;i<3;i++)context.chat.push({is_user:true,mes:'Continue',send_date:'u'+i},{name:'Anna',mes:prose,send_date:'r'+i,swipe_id:0,extra:{}});
+ runtime.settings.rpAutonomy=true;runtime.settings.antiSlopMode='soft';
+ runtime.director.run=async(role)=>role==='pre'?{scene_plan:{}}:{audit:{valid:true,errors:[]},confidence:1,state_delta:{}};
+ await runtime.processPost(5);
+ const before=JSON.stringify(runtime.stateManager.snapshot());
+ const packet=await runtime.preparePacket([],4096,'normal');
+ assert.match(packet,/OPTIONAL STYLE OBSERVATION/);
+ assert.equal(runtime.diagnostics.narrativeQuality.feedback.status,'ACTIVE');
+ assert.equal(JSON.stringify(runtime.stateManager.snapshot()),before);
+ runtime.settings.antiSlopMode='observe';
+ assert.doesNotMatch(await runtime.preparePacket([],4096,'normal'),/OPTIONAL STYLE OBSERVATION/);
+ runtime.settings.antiSlopMode='soft';runtime.settings.rpAutonomy=false;
+ assert.doesNotMatch(await runtime.preparePacket([],4096,'normal'),/OPTIONAL STYLE OBSERVATION/);
+ assert.match(runtime.diagnostics.narrativeQuality.feedbackDisabled,/autonomy/);
+ assert.equal(context.chat[5].mes,prose);
+});
+
+
+test('public lore reaches PRE and reference packet without state writes; outage and off degrade safely', async t => {
+ const {runtime}=await fixture(t);await runtime.processPost(1);
+ runtime.settings.rpAutonomy=true;runtime.settings.loreEnabled=true;runtime.settings.loreLibraryId='world';
+ const before=JSON.stringify(runtime.stateManager.snapshot());
+ const originalFetch=globalThis.fetch;let calls=0, fail=false;
+ globalThis.fetch=async(url,options)=>{
+  if(String(url).includes('/lore/retrieve')) {assert.deepEqual(JSON.parse(options.body).context,JSON.parse(JSON.stringify({location:runtime.stateManager.state.scene.location,present:runtime.stateManager.state.scene.present,time:runtime.stateManager.state.timeline.time})));calls++;if(fail)throw Error('offline');return new Response(JSON.stringify({revision:1,entries:[{id:'room',title:'Room',body:'Old brick walls.'}],selection:[{id:'room',mode:'summary'},{id:'other',mode:'omitted',reason:'budget'}]}));}
+  return originalFetch(url,options);
+ };
+ let input;
+ runtime.director.run=async(role,payload)=>{input=payload;return {scene_plan:{}};};
+ const packet=await runtime.preparePacket([],4096,'normal');
+ assert.match(packet,/WORLD LORE/);assert.match(packet,/Old brick walls/);
+ assert.equal(input.world_lore_reference[0].id,'room');
+ assert.deepEqual(runtime.diagnostics.loreStatus.selection,[{id:'room',mode:'summary'},{id:'other',mode:'omitted',reason:'budget'}]);
+ assert.equal(JSON.stringify(runtime.stateManager.snapshot()),before);
+ fail=true;
+ assert.ok(await runtime.preparePacket([],4096,'normal'));
+ assert.equal(runtime.diagnostics.loreStatus.status,'unavailable');
+ assert.equal(input.world_lore_reference,undefined);
+ runtime.settings.loreEnabled=false;
+ await runtime.preparePacket([],4096,'normal');assert.equal(calls,2);
+});
+
+test('session memory cleanup survives replay and leaves current state and other sessions intact',async t=>{
+ const {runtime,context}=await fixture(t);await runtime.processPost(1);
+ const before=runtime.stateManager.snapshot();assert.ok(runtime.memoryStore.items.length);
+ await runtime.storage.setItem('narrative-engine:ne-abcdef:memories',[{summary:'other'}]);
+ await runtime.clearData('memory','session');
+ assert.deepEqual(runtime.stateManager.snapshot(),before);assert.deepEqual(runtime.memoryStore.items,[]);
+ await runtime.stateManager.rebuild();assert.deepEqual(runtime.stateManager.memories,[]);
+ assert.equal((await runtime.storage.getItem('narrative-engine:ne-abcdef:memories')).length,1);
+ await runtime.clearData('memory','all');assert.deepEqual(await runtime.storage.getItem('narrative-engine:ne-abcdef:memories'),[]);
+ await runtime.clearData('state','session');assert.equal(runtime.stateManager.records.length,0);
+ assert.equal(context.chat.length,2);
+});
+
+
+test('memory collection covers every NPC turn and consolidation counts accepted turns after greeting',async t=>{
+ const {runtime,context}=await fixture(t);runtime.settings.memoryConsolidationInterval=3;
+ context.chat=[{name:'Anna',mes:'FIRST_PROMISE',send_date:'greeting'}];
+ for(let i=0;i<2;i++)context.chat.push({is_user:true,mes:'Continue',send_date:'u'+i},{name:'Anna',mes:'reply'+i,send_date:'a'+i});
+ const flags=[];
+ runtime.director.run=async(role,payload)=>{
+  flags.push(payload.consolidate_memory);assert.equal(payload.collect_memory,true);
+  return {audit:{valid:true,errors:[]},confidence:1,state_delta:{},memory_candidates:[{text:payload.rp_response,visibleTo:['Anna']}]};
+ };
+ await runtime.processPost(4);
+ assert.deepEqual(flags,[false,false,true]);
+ assert.deepEqual(runtime.memoryStore.items.map(m=>m.text),['FIRST_PROMISE','reply0','reply1']);
+ await runtime.processPost(4);assert.equal(flags.length,3);
+ const prompt=await readFile(new URL('../prompts/post_director.md',import.meta.url),'utf8');
+ assert.match(prompt,/EVERY current turn/);assert.doesNotMatch(prompt,/Only emit durable memory candidates when/);
+});
+
+test('group recipient gets private memory in a separate block and not in shared retrieval',async t=>{
+ const {runtime,context}=await fixture(t);runtime.settings.rpAutonomy=true;
+ context.characters.push({name:'Bob',avatar:'Bob.png'});context.groupId='g';
+ context.groups=[{id:'g',members:['Anna.png','Bob.png'],chat_id:'group'}];context.chat=[];context.characterId=0;
+ await runtime.loadChat(context);
+ await runtime.stateManager.importData({chatFingerprint:runtime.stateManager.chatFingerprint,state:runtime.stateManager.snapshot(),memories:[{id:'private',entities:['Anna'],text:'PRIVATE_PROMISE',summary:'PRIVATE_PROMISE',visibleTo:['Anna'],status:'current',...runtime.stateManager.scope}]});
+ let input;runtime.director.run=async(role,payload)=>{input=payload;return {};};
+ const packet=await runtime.preparePacket([],4096,'normal');
+ assert.deepEqual(input.relevant_memories,[]);assert.equal(input.inner_life.privateMemories.characterId,'Anna');
+ assert.match(packet,/PRIVATE CHARACTER MEMORY/);assert.match(packet,/PRIVATE_PROMISE/);
+ const {inspectionPacket}=await import('../src/state/simulationContext.js');
+ assert.doesNotMatch(inspectionPacket(runtime),/PRIVATE_PROMISE/);
+ assert.match(inspectionPacket(runtime),/PRIVATE CHARACTER MEMORY\n\[Hidden in author inspection\]/);
+ runtime.settings.memoryTopK=1;
+ const privateMemory={id:'private',entities:['Anna'],text:'PRIVATE_PROMISE',summary:'PRIVATE_PROMISE',visibleTo:['Anna'],importance:0.01,status:'current',...runtime.stateManager.scope};
+ const publicMemory={...privateMemory,id:'public',text:'PUBLIC_FACT',summary:'PUBLIC_FACT',visibleTo:['*'],importance:1};
+ await runtime.stateManager.importData({chatFingerprint:runtime.stateManager.chatFingerprint,state:runtime.stateManager.snapshot(),memories:[publicMemory,privateMemory]});
+ const ranked=await runtime.preparePacket([],4096,'normal');
+ assert.deepEqual(input.relevant_memories.map(m=>m.id),['public']);
+ assert.deepEqual(input.inner_life.privateMemories.entries.map(m=>m.id),['private']);
+ assert.match(ranked,/PRIVATE_PROMISE/);
+ context.characterId=1;
+ assert.doesNotMatch(await runtime.preparePacket([],4096,'normal'),/PRIVATE_PROMISE/);
+ context.characterId=undefined;
+ assert.doesNotMatch(await runtime.preparePacket([],4096,'normal'),/PRIVATE_PROMISE/);
+});
+
+
+test('POST consolidates accepted earlier episodes and restores pending work after rollback', async t => {
+ const {runtime,context}=await fixture(t);runtime.settings.memoryConsolidationInterval=3;
+ context.chat=[{name:'Anna',mes:'promise',send_date:'greeting'},
+  {is_user:true,mes:'Continue',send_date:'u1'},{name:'Anna',mes:'kept promise',send_date:'a1'},
+  {is_user:true,mes:'Continue',send_date:'u2'},{name:'Anna',mes:'thanks',send_date:'a2'}];
+ const batches=[];
+ runtime.director.run=async(role,payload)=>{
+  batches.push(payload.consolidation_sources);
+  const memory_candidates=[{type:'event',text:payload.rp_response,visibleTo:['*']}];
+  if(payload.consolidation_sources.length) memory_candidates.push({type:'summary',text:'The promise was kept.',
+   sourceMemoryIds:payload.consolidation_sources.map(m=>m.id),visibleTo:['*']});
+  return {audit:{valid:true,errors:[]},confidence:1,state_delta:{},memory_candidates};
+ };
+ await runtime.processPost(4);
+ assert.deepEqual(batches.map(b=>b.length),[0,0,2]);
+ const summary=runtime.memoryStore.items.find(m=>m.type==='summary');
+ assert.equal(summary.sourceMemoryIds.length,2);assert.equal(runtime.memoryStore.items.length,4);
+ await runtime.stateManager.rebuild();
+ assert.deepEqual(runtime.stateManager.memories.find(m=>m.type==='summary').sourceMemoryIds,summary.sourceMemoryIds);
+ const {consolidationBatch}=await import('../src/memory/consolidation.js');
+ const opts={scope:runtime.stateManager.scope,viewers:['Anna']};
+ assert.deepEqual(consolidationBatch(runtime.stateManager.memories,opts),[]);
+ const refs=await branchReferences(context,2,runtime.stateManager.canonVersion);
+ await runtime.stateManager.selectBranch(refs);
+ assert.equal(consolidationBatch(runtime.stateManager.memories,opts).length,2);
+});
+
+
+test('accepted scene transition triggers consolidation on next POST before cadence', async t => {
+ const {runtime,context}=await fixture(t);runtime.settings.memoryConsolidationInterval=100;
+ context.chat=[{name:'Anna',mes:'first',send_date:'a0'},
+  {is_user:true,mes:'Go',send_date:'u1'},{name:'Anna',mes:'second',send_date:'a1'},
+  {is_user:true,mes:'Continue',send_date:'u2'},{name:'Anna',mes:'third',send_date:'a2'}];
+ const flags=[];
+ runtime.director.run=async(role,payload)=>{
+  flags.push(payload.consolidate_memory);
+  return {audit:{valid:true,errors:[]},confidence:1,
+   state_delta:payload.rp_response==='second'?{scene:{location:'garden'}}:{},
+   memory_candidates:[{type:'event',text:payload.rp_response,visibleTo:['*']}]};
+ };
+ await runtime.processPost(4);
+ assert.deepEqual(flags,[false,false,true]);
+});
+
+
+test('POST links only to supplied historical memory IDs and replay preserves relationships',async t=>{
+ const {runtime,context}=await fixture(t);
+ context.chat=[{name:'Anna',mes:'Anna made a promise.',send_date:'a0'},
+  {is_user:true,mes:'Continue',send_date:'u1'},{name:'Anna',mes:'Because of that promise Anna returned.',send_date:'a1'}];
+ const payloads=[];
+ runtime.director.run=async(role,payload)=>{
+  payloads.push(payload);
+  const candidate={type:'event',text:payload.rp_response,visibleTo:['*']};
+  if(payload.memory_link_sources.length) candidate.links=[{relation:'caused_by',targetId:payload.memory_link_sources[0].id,
+   evidence:{ref:payload.evidence_catalog.find(e=>e.source==='rp').ref}}];
+  return {audit:{valid:true,errors:[]},confidence:1,state_delta:{},memory_candidates:[candidate]};
+ };
+ await runtime.processPost(2);
+ assert.equal(payloads[0].memory_link_sources.length,0);assert.equal(payloads[1].memory_link_sources.length,1);
+ const memories=runtime.stateManager.memories;
+ assert.equal(memories[1].links[0].targetId,memories[0].id);
+ await runtime.stateManager.rebuild();
+ assert.deepEqual(runtime.stateManager.memories[1].links,memories[1].links);
 });

@@ -53,6 +53,7 @@ export class ConnectionProfileProvider {
         const profile = this.getProfile(service);
         const timeout = withTimeout(request.signal, request.timeoutMs);
         try {
+            timeout.signal.throwIfAborted();
             const result = await service.sendRequest(
                 profile.id,
                 request.messages,

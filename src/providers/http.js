@@ -4,6 +4,7 @@ export function withTimeout(parentSignal, timeoutMs) {
     const controller = new AbortController();
     const abort = () => controller.abort(parentSignal?.reason || new DOMException('Aborted', 'AbortError'));
     parentSignal?.addEventListener('abort', abort, { once: true });
+    if (parentSignal?.aborted) abort();
     const timer = setTimeout(() => controller.abort(new DOMException('Director request timed out', 'TimeoutError')), timeoutMs);
     return {
         signal: controller.signal,
@@ -17,6 +18,7 @@ export function withTimeout(parentSignal, timeoutMs) {
 export async function fetchJson(url, options, { timeoutMs, signal } = {}) {
     const timeout = withTimeout(signal, timeoutMs || 30000);
     try {
+        timeout.signal.throwIfAborted();
         const response = await fetch(url, { ...options, signal: timeout.signal });
         const text = await response.text();
         let body = null;

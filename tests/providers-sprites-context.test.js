@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getChatFingerprint, resolveMessageSpeaker, resolveParticipants } from '../src/context/stContext.js';
-import { normalizeOpenAiBase } from '../src/providers/http.js';
+import { normalizeOpenAiBase, withTimeout, fetchJson } from '../src/providers/http.js';
+import { SillyTavernProvider } from '../src/providers/sillyTavern.js';
 import { ConnectionProfileProvider, listConnectionProfiles } from '../src/providers/connectionProfile.js';
 import { createProvider } from '../src/providers/index.js';
 import { normalizeSettings } from '../src/settings.js';
@@ -125,4 +126,57 @@ test('validated costume change applies even with the same expression filename',a
         currentSpeaker:'Anna',previous:{Anna:'neutral.png'},allowedCandidates:{Anna:[{file:'neutral.png',costume:'formal'}]}});
     assert.equal(commands.length,2);assert.match(commands[0],/costume.*formal/);
     assert.match(commands[1],/expression-set/);
+});
+
+
+test('speaker avatar wins over an earlier card with the same name', () => {
+    const context = {characters: [{name:'Anna',avatar:'a.png'}, {name:'Anna',avatar:'b.png'}]};
+    assert.equal(resolveMessageSpeaker({name:'Anna',original_avatar:'b.png'},context).id,'b.png');
+    assert.equal(resolveMessageSpeaker({name:'Renamed',force_avatar:'b.png'},context).id,'b.png');
+    assert.equal(resolveMessageSpeaker({name:'Anna'},context).id,'a.png');
+});
+
+test('already cancelled requests never reach fetch and preserve the abort reason', async () => {
+    const parent = new AbortController();
+    const reason = new DOMException('Chat changed', 'AbortError');
+    parent.abort(reason);
+    const timeout = withTimeout(parent.signal, 1000);
+    try {
+        assert.equal(timeout.signal.aborted, true);
+        assert.equal(timeout.signal.reason, reason);
+    } finally { timeout.dispose(); }
+    const original = globalThis.fetch;
+    let requests = 0;
+    globalThis.fetch = async () => { requests++; throw Error('must not send'); };
+    try {
+        await assert.rejects(fetchJson('https://example.invalid', {}, {signal:parent.signal}), error => error.cause === reason);
+        assert.equal(requests, 0);
+    } finally { globalThis.fetch = original; }
+});
+
+test('later parent cancellation propagates until timeout disposal', () => {
+    const parent = new AbortController(), timeout = withTimeout(parent.signal, 1000);
+    parent.abort('stopped');
+    assert.equal(timeout.signal.reason, 'stopped');
+    timeout.dispose();
+    const second = new AbortController(), disposed = withTimeout(second.signal, 1000);
+    disposed.dispose(); second.abort();
+    assert.equal(disposed.signal.aborted, false);
+});
+
+
+test('cancelled requests do not start either SillyTavern transport', async () => {
+    const controller = new AbortController(); controller.abort();
+    let calls = 0;
+    const context = {
+        generateRaw: async () => {calls++;return '{}';},
+        ConnectionManagerRequestService: {
+            getProfile: () => ({id:'test'}),
+            sendRequest: async () => {calls++;return '{}';},
+        },
+    };
+    for (const provider of [new SillyTavernProvider({},context), new ConnectionProfileProvider({connectionProfileId:'test'},context)]) {
+        await assert.rejects(provider.complete({signal:controller.signal,timeoutMs:1000,messages:[{role:'user',content:'test'}]}));
+    }
+    assert.equal(calls,0);
 });

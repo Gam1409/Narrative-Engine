@@ -67,6 +67,10 @@ export class Diagnostics {
         return {
             status: this.status, provider: this.provider, latency: { ...this.latency },
             lastPacket: this.lastPacket, lastAudit: this.lastAudit,
+            loreStatus: this.loreStatus ? structuredClone(this.loreStatus) : null,
+            narrativeQuality: this.narrativeQuality ? structuredClone(this.narrativeQuality) : null,
+            packetAssembly: this.packetAssembly ? structuredClone(this.packetAssembly) : null,
+            rpTextStatus: this.rpTextStatus ? { ...this.rpTextStatus } : null,
             lastSprites: { ...this.lastSprites }, retrievedMemories: [...this.retrievedMemories],
             retrievalMode: this.retrievalMode || 'not_run', embeddingError: this.embeddingError || null,
             quality: {

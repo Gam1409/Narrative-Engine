@@ -91,8 +91,9 @@ function validateDescriptor(def) {
     if (def.items !== undefined) { if (def.type !== 'list') fail('Items require list type'); validateDescriptor(def.items); }
 }
 function validateDefinition(state, def, ignore) {
-    exact(def, ['key', 'label', 'description', 'type', 'scope', 'default', 'validation', 'schemaVersion', 'status', 'aliases', 'values', 'items', 'fields']);
+    exact(def, ['key', 'label', 'description', 'type', 'scope', 'default', 'validation', 'schemaVersion', 'status', 'aliases', 'values', 'items', 'fields', 'visibility']);
     id(def.key); id(def.label); validateDescriptor(def);
+    if (def.visibility !== undefined && !['public', 'private'].includes(def.visibility)) fail('Invalid parameter visibility');
     if (!Array.isArray(def.aliases) || def.aliases.some(a => typeof a !== 'string' || !a.trim())) fail('Invalid aliases');
     if (!['active', 'archived'].includes(def.status)) fail('Invalid parameter status');
     if (!Number.isInteger(def.schemaVersion) || def.schemaVersion < 1) fail('Invalid parameter schema version');
@@ -167,7 +168,7 @@ export function applyOperations(input, operations, metadata = {}) {
             state.registry.entityTypes[op.key] = { key: op.key, label: op.label, status: 'active' };
         } else if (op.op === 'define_parameter') {
             exact(op, ['op', 'definition']);
-            const def = { description: '', aliases: [], validation: {}, status: 'active', ...clone(op.definition), schemaVersion: state.registry.schemaVersion + 1 };
+            const def = { description: '', aliases: [], validation: {}, status: 'active', visibility: 'private', ...clone(op.definition), schemaVersion: state.registry.schemaVersion + 1 };
             validateDefinition(state, def);
             state.registry.parameters[def.key] = def;
             for (const e of Object.values(state.entities)) if (def.scope.includes(e.type) && own(def, 'default')) { e.params[def.key] = clone(def.default); stamp(e, metadata); }
@@ -175,7 +176,7 @@ export function applyOperations(input, operations, metadata = {}) {
             exact(op, ['op', 'key', ...(op.op === 'update_parameter' ? ['patch'] : op.op === 'rename_parameter' ? ['newKey', 'label'] : [])]);
             const def = definition(state, op.key, false); const oldKey = def.key;
             if (op.op === 'update_parameter') {
-                exact(op.patch, ['label', 'description', 'type', 'scope', 'default', 'validation', 'values', 'items', 'fields', 'status']);
+                exact(op.patch, ['label', 'description', 'type', 'scope', 'default', 'validation', 'values', 'items', 'fields', 'status', 'visibility']);
                 Object.assign(def, clone(op.patch));
             } else if (op.op === 'rename_parameter') {
                 id(op.newKey); def.key = op.newKey; if (op.label !== undefined) def.label = op.label;

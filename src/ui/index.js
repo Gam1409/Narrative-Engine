@@ -1,3 +1,6 @@
+import { bindLoreLibrary } from './loreLibrary.js';
+import { bindSettingsLocale } from './settingsLocale.js';
+import { bindSettingsWindow } from './settingsWindow.js';
 import { bindWorkflowLibrary } from './visualWorkflows.js';
 import { SIMULATION_DEFAULTS } from '../state/simulation.js';
 const DEFAULT_PROMPT_VARIANTS = Object.freeze({
@@ -15,6 +18,7 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     ...SIMULATION_DEFAULTS,
     showInternalState: false,
     visualUserWorkflows: [], visualAnimaVariant: 'base', visualPositive: '', visualNegative: '',
+    uiLanguage: 'en',
     visualIllustrationPolicy: 'significant',
     visualIllustrationSource: 'fresh', visualLayersNotReady: 'wait', visualLayersTimeoutMs: 120000,
     visualLayerCamera: 'full body, eye level', visualLayerDenoise: 0.45,
@@ -31,6 +35,11 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     model: '',
     connectionProfileId: '',
     auditMode: 'soft',
+    rpAutonomy: false,
+    loreEnabled: false,
+    loreLibraryId: 'world',
+    antiSlopMode: 'off',
+    qualityWindow: 6,
     minimumConfidence: 0.5,
     recentMessages: 12,
     memoryTopK: 6,
@@ -38,6 +47,9 @@ const DEFAULT_UI_SETTINGS = Object.freeze({
     memoryWeights: { semantic: 0.55, importance: 0.2, entities: 0.1, location: 0.1, recency: 0.05, old: 0.3 },
     plotInterval: 3,
     memoryConsolidationInterval: 8,
+    memoryConsolidationTokenBudget: 3000,
+    memoryAvailability: false,
+    memoryAvailabilityHalfLifeDays: 30,
     checkpointInterval: 10,
     continuity: true,
     characterState: true,
@@ -64,12 +76,12 @@ const NUMBER_SETTINGS = new Set([
     'visualCooldownMs', 'visualBackgroundHysteresis', 'visualLayersTimeoutMs', 'visualLayerDenoise',
     'significanceThreshold','relationshipConfidence','relationshipMaxChange','repetitionThreshold','minTurnMinutes','maxTurnMinutes',
     'memoryWeights.semantic', 'memoryWeights.importance', 'memoryWeights.entities', 'memoryWeights.location', 'memoryWeights.recency', 'memoryWeights.old',
-    'minimumConfidence', 'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'checkpointInterval',
+    'minimumConfidence', 'recentMessages', 'memoryTopK', 'plotInterval', 'memoryConsolidationInterval', 'memoryConsolidationTokenBudget', 'memoryAvailabilityHalfLifeDays', 'checkpointInterval',
 ]);
 
 const STATUS_FIELDS = [
     'providerStatus', 'preLatency', 'postLatency', 'scene', 'time', 'presentCharacters',
-    'threads', 'retrievedMemories', 'lastAudit', 'spriteDecisions', 'tokenEstimates', 'errors', 'storageStatus', 'retrievalMode', 'memoryScope', 'usage', 'latencyStats', 'quality', 'subsystems',
+    'loreStatus', 'narrativeQuality', 'packetAssembly', 'rpTextStatus', 'threads', 'retrievedMemories', 'lastAudit', 'spriteDecisions', 'tokenEstimates', 'errors', 'storageStatus', 'retrievalMode', 'memoryScope', 'usage', 'latencyStats', 'quality', 'subsystems',
 ];
 
 const DEBUG_FUNCTIONS = Object.freeze([
@@ -85,6 +97,7 @@ export function normalizeUiSettings(settings = {}) {
     return {
         ...DEFAULT_UI_SETTINGS,
         ...settings,
+        uiLanguage: settings.uiLanguage === 'ru' ? 'ru' : 'en',
         memoryWeights: { ...DEFAULT_UI_SETTINGS.memoryWeights, ...settings.memoryWeights },
         ...(settings.modules && typeof settings.modules === 'object' ? settings.modules : {}),
         promptVariants: {
@@ -111,6 +124,13 @@ export function setSettingValue(settings, path, value) {
     }
     target[keys.at(-1)] = value;
     return settings;
+}
+
+/** Build a minimal update against live settings, preserving nested siblings. */
+export function settingChangePatch(settings, path, value) {
+    const key = String(path).split('.')[0];
+    const patch = { [key]: structuredClone(settings[key]) };
+    return setSettingValue(patch, path, value);
 }
 
 /** Convert diagnostic values to bounded, readable text without producing HTML. */
@@ -288,6 +308,8 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
     const current = normalizeUiSettings(settings);
     const controller = new AbortController();
     const { signal } = controller;
+    const applyLocale = bindSettingsLocale(panel.closest('#narrative-engine-drawer') || panel);
+    const disposeSettingsWindow = bindSettingsWindow(panel, signal);
     const profileSelect = panel.querySelector('#ne-connection-profile');
     const profileStatus = panel.querySelector('#ne-connection-profile-status');
     const profileSubscriptions = [];
@@ -369,12 +391,16 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
     let workflowLibrary;
     const commit = (path, value) => {
         setSettingValue(current, path, value);
-        renderSettings(panel, current);
-        workflowLibrary?.render();
-        updateProfileStatus();
+        if (path !== 'uiLanguage') {
+            renderSettings(panel, current);
+            workflowLibrary?.render();
+            updateProfileStatus();
+        }
+        applyLocale(current.uiLanguage);
         onSettingsChange(current, { path, value });
     };
 
+    bindLoreLibrary(panel, current, (...args) => { if (!actions.loreRequest) throw Error('Lore requires the server plugin'); return actions.loreRequest(...args); }, signal);
     workflowLibrary = bindWorkflowLibrary(panel, current, commit, signal, actions.checkVisualWorkflow);
 
     for (const control of panel.querySelectorAll('[data-setting]')) {
@@ -401,7 +427,11 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
         button.setAttribute('aria-busy', 'true');
         setNotice(panel, '');
         try {
-            const result = await action();
+            if(actionName==='clearData') {
+                const message=current.uiLanguage==='ru' ? 'Удаление: '+button.textContent.trim()+'. Будут удалены выбранные данные расширения. Чат, настройки и изображения сохранятся. Введите DELETE для подтверждения.' : 'Delete: '+button.textContent.trim()+'. Selected extension data will be deleted. Chat messages, settings and images remain. Type DELETE to confirm.';
+                if(panel.ownerDocument.defaultView.prompt(message)!=='DELETE')return;
+            }
+            const result = actionName==='clearData' ? await action(button.dataset.clearKind,button.dataset.clearScope) : await action();
             if (button.dataset.viewerTitle) await showViewer(panel, context, button.dataset.viewerTitle, result);
             else if (typeof result === 'string' && result) setNotice(panel, result);
         } catch (error) {
@@ -440,13 +470,23 @@ export function initUi({ root = document, context = {}, settings = {}, onSetting
         context.eventSource.on(eventName, refreshConnectionProfiles);
         profileSubscriptions.push([eventName, refreshConnectionProfiles]);
     }
+    applyLocale(current.uiLanguage);
     void refreshConnectionProfiles();
     return {
         settings: current,
+        updateSettings(nextSettings) {
+            Object.assign(current, normalizeUiSettings(nextSettings));
+            renderSettings(panel, current);
+            workflowLibrary?.render();
+            updateProfileStatus();
+            applyLocale(current.uiLanguage);
+        },
         updateStatus(nextStatus) { renderUiStatus(panel, nextStatus); },
         destroy() {
             destroyed = true;
             profileRefreshId += 1;
+            applyLocale('en');
+            disposeSettingsWindow();
             controller.abort();
             for (const [eventName, handler] of profileSubscriptions) {
                 if (typeof context.eventSource?.removeListener === 'function') context.eventSource.removeListener(eventName, handler);

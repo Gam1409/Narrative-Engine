@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     ...SIMULATION_DEFAULTS,
     showInternalState: false,
     visualUserWorkflows: [], visualAnimaVariant: 'base', visualPositive: '', visualNegative: '',
+    uiLanguage: 'en',
     visualIllustrationPolicy: 'significant',
     visualIllustrationSource: 'fresh', visualLayersNotReady: 'wait', visualLayersTimeoutMs: 120000,
     visualLayerCamera: 'full body, eye level', visualLayerDenoise: 0.45,
@@ -38,6 +39,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
     promptPreset: 'balanced',
     promptVariants: DEFAULT_PROMPT_VARIANTS,
     auditMode: 'soft',
+    rpAutonomy: false,
+    loreEnabled: false,
+    loreLibraryId: 'world',
+    antiSlopMode: 'off',
+    qualityWindow: 6,
     minimumConfidence: 0.5,
     recentMessages: 12,
     memoryTopK: 6,
@@ -45,6 +51,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
     memoryWeights: { semantic: 0.55, importance: 0.2, entities: 0.1, location: 0.1, recency: 0.05, old: 0.3 },
     plotInterval: 3,
     memoryConsolidationInterval: 8,
+    memoryConsolidationTokenBudget: 3000,
+    memoryAvailability: false,
+    memoryAvailabilityHalfLifeDays: 30,
     checkpointInterval: 10,
     worldEventChance: 0,
     packetTokenBudget: 1500,
@@ -67,6 +76,11 @@ export function normalizeSettings(candidate = {}) {
     const promptPresets = new Set(['balanced', 'strictContinuity', 'livingWorld', 'characterDriven', 'custom']);
     const promptVariants = new Set(['light', 'balanced', 'strict']);
     merged.provider = providers.has(merged.provider) ? merged.provider : DEFAULT_SETTINGS.provider;
+    merged.antiSlopMode = ['observe', 'soft'].includes(merged.antiSlopMode) ? merged.antiSlopMode : 'off';
+    merged.qualityWindow = Math.round(clampNumber(merged.qualityWindow, 4, 12, 6));
+    merged.loreEnabled = merged.loreEnabled === true;
+    merged.loreLibraryId = /^[a-zA-Z0-9_-]{1,64}$/.test(merged.loreLibraryId) ? merged.loreLibraryId : 'world';
+    merged.rpAutonomy = merged.rpAutonomy === true;
     merged.auditMode = auditModes.has(merged.auditMode) ? merged.auditMode : DEFAULT_SETTINGS.auditMode;
     merged.promptPreset = promptPresets.has(merged.promptPreset) ? merged.promptPreset : DEFAULT_SETTINGS.promptPreset;
     merged.promptVariants = Object.fromEntries(Object.keys(DEFAULT_PROMPT_VARIANTS).map((key) => [
@@ -94,6 +108,7 @@ export function normalizeSettings(candidate = {}) {
     for (const key of ['visualPositive','visualNegative']) merged[key] = String(merged[key] || '').trim().slice(0,2000);
     merged.visualCheckpoint = String(merged.visualCheckpoint || '').trim().slice(0, 500);
     merged.visualPromptProfile = ['sdxl', 'pony', 'illustrious', 'anima'].includes(merged.visualPromptProfile) ? merged.visualPromptProfile : 'sdxl';
+    merged.uiLanguage = merged.uiLanguage === 'ru' ? 'ru' : 'en';
     merged.visualIllustrationPolicy = ['significant', 'all', 'manual'].includes(merged.visualIllustrationPolicy) ? merged.visualIllustrationPolicy : 'significant';
     merged.visualIllustrationSource = ['fresh','layers','layers_or_fresh'].includes(merged.visualIllustrationSource) ? merged.visualIllustrationSource : 'fresh';
     merged.visualLayersNotReady = merged.visualLayersNotReady === 'fail' ? 'fail' : 'wait';
@@ -104,10 +119,13 @@ export function normalizeSettings(candidate = {}) {
     merged.visualBackgroundHysteresis = Math.floor(clampNumber(merged.visualBackgroundHysteresis, 1, 10, 2));
     merged.visualCooldownMs = clampNumber(merged.visualCooldownMs, 1000, 300000, 15000);
     merged.visualStages=Object.fromEntries(['controlnet','ipadapter','mask'].map(k=>[k,merged.visualStages?.[k]===true]));
+    merged.memoryAvailability = merged.memoryAvailability === true;
+    merged.memoryAvailabilityHalfLifeDays = Math.floor(clampNumber(merged.memoryAvailabilityHalfLifeDays, 1, 3650, 30));
     merged.embeddingSearch = merged.embeddingSearch === true;
     merged.memoryWeights = Object.fromEntries(Object.entries(DEFAULT_SETTINGS.memoryWeights).map(([key, value]) => [key, clampNumber(merged.memoryWeights?.[key], 0, 2, value)]));
     merged.memoryTopK = clampNumber(merged.memoryTopK, 1, 20, 6);
     merged.plotInterval = clampNumber(merged.plotInterval, 1, 50, 3);
+    merged.memoryConsolidationTokenBudget = Math.floor(clampNumber(merged.memoryConsolidationTokenBudget, 256, 16000, 3000));
     merged.memoryConsolidationInterval = clampNumber(merged.memoryConsolidationInterval, 2, 100, 8);
     merged.checkpointInterval = clampNumber(merged.checkpointInterval, 2, 100, 10);
     merged.worldEventChance = clampNumber(merged.worldEventChance, 0, 1, 0);

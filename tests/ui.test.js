@@ -9,6 +9,7 @@ import {
     normalizeUiSettings,
     registerDebugFunctions,
     setSettingValue,
+    settingChangePatch,
 } from '../src/ui/index.js';
 
 test('formatConnectionProfileLabel exposes only a bounded name and api/model hint', () => {
@@ -75,4 +76,18 @@ test('registerDebugFunctions uses the public four-argument API', async () => {
     assert.equal(calls[0][1], 'Health check');
     await calls[0][3]();
     assert.equal(healthChecks, 1);
+});
+
+
+test('UI patches preserve external disable and live nested siblings', () => {
+    // The UI was mounted enabled, then a slash command disabled the live runtime.
+    const live = {enabled:false, model:'new-model', promptVariants:{continuity:'strict',knowledge:'light'}};
+    const patch = settingChangePatch(live,'promptVariants.continuity','balanced');
+    const saved = {...live,...patch};
+    assert.equal(saved.enabled,false);
+    assert.equal(saved.model,'new-model');
+    assert.deepEqual(saved.promptVariants,{continuity:'balanced',knowledge:'light'});
+    assert.equal(live.promptVariants.continuity,'strict');
+    assert.deepEqual(Object.keys(patch),['promptVariants']);
+    assert.deepEqual(settingChangePatch(live,'memoryTopK',9),{memoryTopK:9});
 });

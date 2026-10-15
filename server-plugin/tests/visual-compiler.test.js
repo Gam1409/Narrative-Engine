@@ -112,3 +112,23 @@ test('unused identity slots have zero model and CLIP influence',()=>{
     assert.equal(empty['10'].inputs.strength_model,0);assert.equal(empty['10'].inputs.strength_clip,0);
     assert.equal(recipe.workflow['11'].inputs.strength_model,1);
 });
+
+
+test('identity LoRA must reach the selected output, including custom output classes', () => {
+    const input={scene:scene(),seed:42,checkpoint:'model',promptProfile:'illustrious'};
+    const recipe=builtinRecipe('scene_full',input);
+    // Keep the LoRA preview, while making the selected image use a separate base branch.
+    recipe.workflow['20']={class_type:'CLIPTextEncode',inputs:{clip:['1',1],text:'base'}};
+    recipe.workflow['21']={class_type:'CLIPTextEncode',inputs:{clip:['1',1],text:''}};
+    recipe.workflow['8']=structuredClone(recipe.workflow['5']);
+    Object.assign(recipe.workflow['8'].inputs,{model:['1',0],positive:['20',0],negative:['21',0]});
+    recipe.workflow['9']={class_type:'VAEDecode',inputs:{samples:['8',0],vae:['1',2]}};
+    recipe.workflow['11']={class_type:'CustomImageOutput',inputs:{images:['9',0]}};
+    recipe.outputNode='11';
+    assert.throws(()=>buildWorkflow(recipe,input),/selected image output/);
+    // Connecting the chosen custom output to the identity branch is sufficient;
+    // class names of third-party image output nodes are not hard-coded.
+    recipe.workflow['11'].inputs.images=['6',0];
+    delete recipe.workflow['7'];
+    assert.deepEqual(buildWorkflow(recipe,input)['11'].inputs.images,['6',0]);
+});

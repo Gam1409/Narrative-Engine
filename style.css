@@ -69,12 +69,12 @@
 
 .ne-fields { display: grid; gap: .72rem; }
 .ne-fields--numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.ne-field { display: grid; gap: .28rem; min-width: 0; font-size: .86rem; }
+.ne-field { display: grid; align-content: start; gap: .28rem; min-width: 0; font-size: .86rem; }
 .ne-field > span, .ne-module-list span { color: var(--ne-text); }
 .ne-field small { color: var(--ne-muted); }
 .ne-connection-profile-status[data-state="missing"],
 .ne-connection-profile-status[data-state="unavailable"] { color: var(--ne-warn); }
-.ne-field input, .ne-field select { width: 100%; min-height: 2.25rem; }
+.ne-field input:not([type="checkbox"]), .ne-field select, .ne-field textarea { width: 100%; max-width: 100%; min-height: 2.25rem; margin: 0; }
 .ne-field[hidden] { display: none; }
 
 .ne-primary-action { margin-top: .8rem; }
@@ -192,3 +192,82 @@
 .ne-workflow-dialog .ne-field textarea { width: 100%; box-sizing: border-box; resize: vertical; }
 
 .ne-composite-canvas { display:block; width:100%; height:100%; }
+
+
+/* The host drawer stays compact; the settings workspace lives in the top layer. */
+#ne-settings-window {
+    width: 80vw; height: 80vh; max-width: 1400px; max-height: 90dvh;
+    margin: auto; padding: 0; overflow: hidden;
+    color: var(--SmartThemeBodyColor, #e8e8e8);
+    background: var(--SmartThemeBlurTintColor, #18181c);
+    border: 1px solid var(--SmartThemeBorderColor, #555); border-radius: 12px;
+    box-shadow: 0 20px 80px #0008;
+}
+#ne-settings-window::backdrop { background: #0009; }
+#ne-settings-window > .ne-console { box-sizing: border-box; display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 20px; }
+#ne-settings-window .ne-console__header { position: relative; flex-shrink: 0; padding-right: 44px; }
+#ne-settings-window .ne-settings-close { position: absolute; top: 0; right: 0; min-width: 32px; padding: 3px 9px; font-size: 24px; }
+.ne-settings-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 14px 0; flex-shrink: 0; border-bottom: 1px solid var(--ne-border); }
+.ne-settings-tabs [role="tab"] { border: 1px solid transparent; background: transparent; color: var(--ne-muted); padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.ne-settings-tabs [aria-selected="true"] { color: var(--ne-text); background: var(--ne-surface); border-color: var(--ne-accent); }
+.ne-settings-tabs [role="tab"]:focus-visible { outline: 2px solid var(--ne-accent); outline-offset: 2px; }
+#ne-settings-window .ne-spine { flex: 1; min-height: 0; overflow-y: auto; padding-right: 10px; }
+.ne-settings-page[hidden] { display: none !important; }
+@media (max-width: 700px) {
+    #ne-settings-window { width: 96vw; height: 92dvh; max-height: 96dvh; }
+    #ne-settings-window > .ne-console { padding: 12px; }
+    .ne-settings-tabs [role="tab"] { padding: 7px 9px; }
+}
+
+.ne-settings-language { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ne-settings-language select { width: auto; min-width: 100px; margin: 0; }
+
+.ne-lore-preview { max-height: 45vh; overflow: auto; }
+.ne-lore-entry { display: flex; align-items: start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #8884; overflow-wrap: anywhere; }
+
+[data-ne-group="lore"] input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; align-self: flex-start; }
+
+/* Consistent field rhythm inside every settings tab, including long explanations. */
+#ne-settings-window > .ne-console { container: ne-settings / inline-size; }
+#ne-settings-window .ne-fields { align-items: start; gap: 1rem; }
+#ne-settings-window .ne-field { gap: .4rem; }
+#ne-settings-window .ne-field small, #ne-settings-window .ne-help {
+    font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere;
+}
+#ne-settings-window .ne-field textarea { resize: vertical; }
+#ne-settings-window .ne-field:has(> input[type="checkbox"]) {
+    grid-template-columns: 1.1rem minmax(0, 1fr);
+    gap: .35rem .6rem; align-items: start; cursor: pointer;
+}
+#ne-settings-window .ne-field > input[type="checkbox"] {
+    grid-column: 1; grid-row: 1; align-self: start;
+    width: 1rem; height: 1rem; min-height: 0; margin: .15rem 0 0;
+}
+#ne-settings-window .ne-field:has(> input[type="checkbox"]) > span { grid-column: 2; grid-row: 1; }
+#ne-settings-window .ne-field:has(> input[type="checkbox"]) > small { grid-column: 2; }
+.ne-settings-group {
+    min-width: 0; margin: 1.2rem 0 0; padding: 1rem;
+    border: 1px solid var(--ne-border); border-radius: .45rem;
+}
+.ne-settings-group > legend { padding: 0 .4rem; font-size: .86rem; font-weight: 600; }
+.ne-settings-group > .ne-field { margin-bottom: 1rem; }
+.ne-settings-group > .ne-help { margin: .75rem 0 0; }
+.ne-settings-disclosure > summary { padding: .1rem 0; font-size: .9rem; font-weight: 600; cursor: pointer; }
+.ne-settings-disclosure[open] > .ne-fields { margin-top: 1rem; }
+#ne-settings-window [data-ne-group="lore"], #ne-settings-window [data-ne-group="data"] {
+    display: grid; gap: .85rem; min-width: 0;
+}
+#ne-settings-window :is([data-ne-group="lore"], [data-ne-group="data"]) > p {
+    max-width: 80ch; color: var(--ne-muted); font-size: .86rem; line-height: 1.5;
+}
+#ne-settings-window [data-ne-group="data"] > h4:not(:first-child) {
+    margin-top: .6rem; padding-top: 1rem; border-top: 1px solid var(--ne-border);
+}
+#ne-settings-window .ne-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+#ne-settings-window .ne-actions > button { flex: 1 1 12rem; margin: 0; white-space: normal; }
+#ne-settings-window [data-ne-group="lore"] > details[open] > :not(summary) { margin-top: .75rem; }
+#ne-settings-window .ne-settings-page { min-width: 0; }
+@container ne-settings (max-width: 520px) {
+    .ne-fields--numbers { grid-template-columns: minmax(0, 1fr); }
+    .ne-settings-group { padding: .75rem; }
+}

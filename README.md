@@ -6,7 +6,7 @@
 
 Narrative Engine adds a separate Director model to SillyTavern. Your RP model writes the story; the Director tracks continuity, physical state, knowledge, relationships, world events and episodic memory. Optional sprite selection and ComfyUI jobs use accepted scene state.
 
-**Version 1.1.0.** Current local validation: **168 client / 89 server tests**. Earlier upstream inspection used SillyTavern 1.19.0 (`06bde939fb1e9c4c8d8641d810f0a916b5bce127`). Standalone LLM and ComfyUI experiments do not establish complete live SillyTavern acceptance. See [known limits](#known-limits).
+**Version 1.1.0.** Current local validation: **295 client / 135 server tests**. Earlier upstream inspection used SillyTavern 1.19.0 (`06bde939fb1e9c4c8d8641d810f0a916b5bce127`). Standalone LLM and ComfyUI experiments do not establish complete live SillyTavern acceptance. See [known limits](#known-limits).
 
 ## How it works
 
@@ -302,3 +302,205 @@ Before submission and publication, the client checks current reference IDs/keys 
 **Illustration from current layers** makes a strict manual layer request without changing the saved source mode. Readiness/wait rules still apply. Results expose `guided`, reference IDs and `reason` for fresh images (existing source/fallback fields remain compatible). Client generation keys include recipe and layout version 1.
 
 Local acceptance includes a 30-turn client-to-SQLite run: one background submission, 29 cache hits and one significant illustration, with all GPU responses simulated. A typed core-node inventory accepts the complete guided graph; missing dependencies remain rejected. Actual ComfyUI rendering and SillyTavern acceptance are still pending.
+
+
+### Settings window
+
+Expand Narrative Engine in the extensions panel and click **Show settings**. A dialog uses 80% of the desktop viewport, with six tabs for general settings, memory and pacing, story records, characters/world, visuals and diagnostics. Small screens use nearly the full viewport. Tabs support arrow keys, Home and End; Escape closes the dialog. Switching tabs preserves the mounted controls. Settings retain the existing save-on-change behavior; there is no separate Save button.
+
+Settings open in English by default. Use **Interface language → English / Русский** to switch fixed settings labels and tabs; the choice is saved. This does not translate RP prompts, user content, server responses or diagnostic payloads. A **generation preset** combines a ComfyUI workflow with its generation parameters and bindings.
+
+### RP model autonomy (opt-in)
+
+Enable **RP model autonomy** under **Memory & pacing**. It defaults to off to preserve existing chats. The RP model owns NPC choices and prose; Director supplies an optional closed-vocabulary scene observation. It does not prescribe plot beats. Canonical continuity comes from the visibility-filtered state, not Director-invented constraints. Private character context remains recipient-specific.
+
+With autonomy enabled, even Strict audit cannot rewrite the displayed response through Director. Disputed extraction stays unconfirmed; diagnostics explain that manual SillyTavern regeneration may be needed. JSON repair remains available. No additional mandatory model call is introduced.
+
+**Packet assembly** diagnostics show inclusion, compression and omission. HARD facts are compacted without truncation before lower-priority context. If mandatory facts still exceed the configured budget, no partial packet is injected and overflow is reported; RP can continue without the NE packet. Estimates use characters / 4, not the provider tokenizer. Director outage falls back to canonical context when the request is still current. Turning autonomy off restores legacy behavior.
+
+This autonomy contract is complemented by the limited repetition and lore features below; full AntiSlop/lore/offscreen simulation requirements remain open. It has local automated coverage; live Solo/Group/streaming and artistic quality remain unverified. No automatic RP revision adapter is supplied.
+
+### Repetition monitoring (local observation)
+
+Under **Memory & pacing**, set **Repetition monitoring → Observe only**. Default is Off; **Quality window** is 4–12 accepted replies (default 6). Diagnostics show lexical overlap for the latest accepted reply: one matching earlier response is a candidate; two or more are a confirmed statistical signal, not a literary verdict. Comparisons use normalized Unicode 32-character shingles, ignore responses shorter than 80 normalized characters and inspect at most 12,000 normalized characters per response. The provisional overlap threshold is 0.45 and needs calibration on real RP.
+
+Only the accepted prefix of the current branch is assessed. Signals are recomputed during reconciliation, expire when new responses no longer match, and clear on history/chat changes. Diagnostics contain evidence IDs and overlap scores, not copied prose. Observe does not change PRE/POST prompts, RP text or canon and makes no model/GPU calls. No semantic stagnation, gesture interpretation or automated rewrite is implemented. Optional soft feedback is described below.
+
+### Soft feedback for repetition
+
+Choose **Repetition monitoring → Soft feedback** and enable **RP model autonomy**. Otherwise Soft remains observation-only, with the reason shown in diagnostics. A confirmed local repetition signal can supply one fixed, optional style hint to the RP context; it never quotes the repeated text, dictates NPC actions, or writes canon. It is the lowest-priority packet block and is omitted when the budget is full. No extra LLM call is made.
+
+The note lasts for at most two newly accepted replies; the next trigger is allowed after three. Improvement expires it early. Scene changes expire the old note and start a three-reply cooldown. Edit/swipe/delete, chat changes and quality-setting changes clear it. Notes are ephemeral: reload discards their lifetime/cooldown history and the next reconciliation can produce a new note from the current accepted branch. Repeated PRE attempts without an accepted reply do not advance its age. Diagnostics show eligibility/lifetime; Packet assembly shows whether it actually fitted in the packet. Live artistic benefit is not yet measured.
+
+### World lore: first World Info import
+
+The **Lore** tab imports SillyTavern World Info JSON (entries object/array, optional UTF-8 BOM). Update the server plugin as well as the extension. Choose a library ID, preview a file, explicitly check public entries, then save. Unchecked entries remain hidden. Re-import resets visibility to the reviewed selection, replaces matching IDs and marks missing entries deprecated. Libraries are stored as managed JSON files with separate original-source files, isolated by ST user and shared between that user's chats. Legacy SQLite libraries migrate on access. The active library ID is a setting; libraries are not included in world export. Saves use revision checks to prevent overwriting concurrent imports.
+
+Enable **Lore retrieval** plus **RP model autonomy** to use it. Keyword matching searches the latest user message and canonical location; constant entries are capped at 25% of the lore budget. At most ten public active entries are selected, using up to roughly 30% of the packet budget. They reach Director as reference data and the RP packet below hard canon and memory. Lore does not create deltas or images. Server failure falls back to RP without lore (request timeout 5 seconds). Diagnostics list revision and IDs, never hidden bodies.
+
+Initial limits: 500 KB input (also subject to server HTTP body limit), 500 imported entries, 20,000 characters per entry, 1,000 entries including deprecated history. Order 0 and numeric comments are supported. Selective activation supports primary keys plus any secondary key; unsupported selective logic disables the entry. Source entries explicitly marked secret/self/restricted in NE extensions cannot be made public by this importer.
+
+This is a limited first implementation: only hidden/public visibility and keyword/tag selection; no private lore, advanced ST gating, semantic conflict detector, lore-derived visual appearance or DeepLore integration yet. Markdown and character-book adapters are described below. Explicit public selection is an author decision, not inferred from tags. Canon priority is stated to the model and protected in packet allocation; semantic obedience still requires live evaluation. Import text is treated as untrusted data, not a guarantee against all prompt injection. Browser import flow was exercised with the real SQLite service behind a test transport, not a deployed SillyTavern instance.
+
+### Markdown and character-book lore imports
+
+The Lore file picker also accepts `.md` and JSON character cards. JSON auto-detection accepts `data.character_book`, `character_book`, and a standalone book whose entries have `keys`. Only book entries are imported; card system prompts, creator notes and other character fields are excluded. The mapping follows the [Character Card V2 specification](https://github.com/malfoyslastname/character-card-spec-v2/blob/main/spec_v2.md): keys/secondary keys, enabled, constant, case sensitivity, priority and insertion order. PNG cards and automatic synchronization with the active character are not supported.
+
+One Markdown file produces one entry; importing a different file into the same library replaces the library snapshot and deprecates missing entries. Use a separate library ID when needed. This is not a folder or multi-file importer. A stable explicit `id` is recommended; otherwise identity derives from the filename.
+
+```markdown
+---
+id: kitchen
+title: Kitchen
+keys: [kitchen, room]
+summary: A small stone kitchen
+priority: 0
+visibility: hidden
+---
+# Kitchen
+Stone walls surround a wooden table. A door leads to [[Hall]].
+```
+
+Supported frontmatter: `id`, `title`, `keys`, `secondary_keys`, `summary`, `tags`, `type`, `priority`, `always`/`constant`, `status`, `visibility`. Supports scalar values, simple inline lists and block lists, not full YAML. Duplicate keys, tags/anchors and nested/block scalar syntax are rejected. Unknown metadata (including unsupported gating) disables the entry with a warning. `lorebook-guide` documents are skipped. Wiki links and summary are retained as metadata; recursive expansion and summary retrieval are not implemented. All formats remain hidden until the author explicitly selects public entries; secret/self/restricted markings remain locked.
+
+### File-backed lore storage
+
+Production lore lives under `<storageRoot>/lore/<hashed-user-scope>/`. Each library has a readable JSON file (`narrative-engine.lore-library.v1`) containing entries, visibility and revision. Imported Markdown is retained verbatim in a separate `.md`; imported JSON is retained as `.json`. Source sidecars have content-hashed filenames and are not overwritten. The JSON library is the active source of truth; changing an original sidecar does not update it. Download, edit and re-import a source through the preview to apply changes.
+
+The Lore tab provides **Download library JSON** and **Download original source**. Native library JSON can be re-imported within the existing import size/count limits, with public entries reviewed again. Downloads may include hidden entries: these are deliberate author exports, not RP packets.
+
+Saving writes the source first and atomically replaces the library JSON. SQLite is retained for legacy migration and serializing writes, not as the primary lore store. Old rows are not deleted. A migrated library has no original source download unless a source has subsequently been imported; its normalized JSON can always be downloaded. Corrupt JSON produces an error, not silent fallback to older SQLite data. Do not manually delete managed library files: legacy rows may be migrated again on access. When manually editing active JSON, preserve its schema and increment revision; re-import through preview is preferable. No file watcher or automatic source-sidecar cleanup is supplied. Back up the whole lore directory; filenames must not be treated as authorization boundaries outside ST.
+
+
+### Custom JSON lore mapping and freeform tags
+
+In **Lore → Custom JSON mapping**, enter a profile and select a JSON file. **Preview import** reruns preview after editing the profile; edits invalidate the previous approval. For example:
+
+```json
+{"profile":"world","format":"json","entriesPath":"$.world.items[*]","fields":{"id":"$.id","title":"$.name","body":"$.description","keys":"$.triggers","tags":"$.labels","priority":"$.weight"},"tagMap":{"place":{"type":"location"},"secret":{"visibility":"secret"},"known:*":{"visibility":"restricted","visibleTo":"$1"}},"defaults":{"visibility":"hidden","type":"other"}}
+```
+
+Paths support dot-separated properties and a terminal `[*]` for the entries array; no expressions or executable code. Map stable IDs for reliable re-import (otherwise array indices are used). The profile is included in the exported library JSON; the original source remains unchanged.
+
+Arbitrary tags remain active search metadata, even without a `tagMap` rule. Preview reports these as search tags, not errors. Public entries can be retrieved by a keyword **or** a literal tag in the query; tags use word boundaries, NFKC normalization and the entry's case-sensitivity setting. Existing secondary-key gates, visibility, priority and token limits still apply. Tags do not infer permissions: all entries start hidden, public selection is explicit, and private mappings remain locked regardless of other tags. `visibleTo` is retained as metadata; actor-specific private retrieval is not implemented. This is lexical retrieval, not embedding search: synonyms, inflections and semantic ranking are not yet supported.
+
+
+### Lore budget fallback
+
+If the complete entry exceeds the remaining retrieval budget, the server tries its author-provided `summary`; if that also fails to fit, it omits the entry. No extra LLM call or change to the source library occurs. The aggregate 25% cap for always entries and the ten-entry limit still apply. `loreStatus.selection` in diagnostics records `full`, `summary` or `omitted`, with `budget`, `always_budget` or `entry_limit` for omissions. It contains IDs, not lore text, and does not expose filtered private entries. These are retrieval decisions; final packet allocation is reported separately. Token counts remain character-based estimates.
+
+
+### Current relationships and personal causes
+
+In RP autonomy mode, the public projection of current relationships is mandatory context. An unambiguous NPC recipient also receives their own visible relationships privately: current dimensions, the latest three changes per relationship and accessible causal events, including resolved events. This respects the relationships setting independently of characterState. Ambiguous recipients receive no private block; other characters' private relationships and inaccessible events are excluded.
+
+Current private context is budgeted alongside HARD before lore and optional blocks. Overflow returns diagnostics and no partial packet, increasing the minimum required budget. Historical lore must not reset current feelings, motivations or relationships; appraisals remain subjective interpretations. Local tests verify packet composition and isolation, not live model compliance. Evidence-backed tendencies are described below; semantic conflict resolution remains unimplemented and baseline profile changes still require author correction.
+
+
+### Data cleanup
+
+**Data management** offers memory/RAG cleanup for the current session (chat) or all sessions, state/history resets including memory, deletion of all lore libraries, and a full reset of these categories. Each action requires typing `DELETE`; cancellation does nothing. SillyTavern messages, settings, original user files and generated images remain. Reprocessing old chat messages later may therefore create new events and memories.
+
+Server memory, embedding caches and FTS live in SQLite; local memory lives in browser storage. Lore uses managed JSON/Markdown files on the server. Memory cleanup also strips journal, checkpoint and internal backup-field copies while preserving state, events and relationships. State reset removes those too. Server operations are account-scoped; local operations target browser storage. All-session server cleanup includes unopened chats. External exports and database backup files are not erased. Offline server cleanup is refused. Export before deletion; a failed multi-step full cleanup may be partial and is reported as such.
+
+Local tests cover replay after erasure, account isolation, stale storage revision rejection and lore-file removal. Browser checks cover six actions, cancellation, typed confirmation and EN/RU with stub deletion handlers, not a deployed SillyTavern instance.
+
+
+### Evidence-backed behavioral tendencies
+
+POST may propose `simulation_delta.characters[].development` with a stable ID, unchanged description/context, eventId, supports/contradicts direction, interpretation and confidence. Code requires a known occurred event and a personal appraisal with confidence >= 0.7, and rejects reused events. Source-turn provenance comes from code; multiple events within one turn cannot accelerate promotion.
+
+Evidence-coverage labels are hypothesis below three independent turns, forming at three, established at five; any counterevidence yields contested. These are conservative operational heuristics, not psychological measurements. Contested labels do not automatically clear. Limits are 12 tendencies and 40 evidence records each, with explicit rejection rather than silent truncation. Legacy events without source-turn provenance are ineligible.
+
+Tendencies remain separate from the baseline profile. Active characters in light/full inner-life mode receive their own tendencies with the latest three supporting/counter evidence records in mandatory private context. They persist/replay/roll back with state; RAG cleanup preserves them and state reset removes them. Local tests verify contracts, not live LLM psychological accuracy. A dedicated tendency editor and semantic deduplication remain future work.
+
+
+### Lore activation conditions
+
+Markdown frontmatter supports `location` (one value or alternatives), `character_present` (all listed characters), and paired quoted `time_from`/`time_to` values in HH:MM format. Native JSON entries use `gating: {location, characters, timeFrom, timeTo}`; World Info/character_book use `extensions.narrative_engine.gating`. Custom JSON mapping does not yet map conditions.
+
+Conditions combine with AND; location alternatives use OR. Identifiers match canonical scene location/present values exactly. Time ranges include the start and exclude the end, allowing midnight crossings such as 22:00–06:00. Missing scene facts fail the corresponding condition. Malformed JSON gates are rejected on import; unsupported frontmatter still disables entries. Chat mentions and PRE guesses cannot substitute for scene state. Always entries do not bypass gating or visibility. Advanced ST conditions, eras, scene types and entry dependencies remain unsupported.
+
+### Reliability fixes after the full code review
+
+Durable memory candidates are collected on every accepted NPC turn, including the opening greeting. The consolidation interval counts accepted NPC turns and only controls the compaction hint; intermediate episodes are not discarded. Shared retrieval and the current NPC's private recollections are separate. A correction unknown to that NPC leaves its previous knowledge available as `belief / last_known`, not as current world truth.
+
+Typed entity parameters now have author-controlled `visibility`: `public` values reach RP continuity; `private` values do not. Existing definitions without this field stay private. To expose an existing physical parameter, explicitly update its definition, for example:
+
+```text
+/narrative-edit-world {"reason":"Expose observable clothing to RP","ops":[{"op":"update_parameter","key":"clothing","patch":{"visibility":"public"}}]}
+```
+
+This applies to the entire parameter value; do not mark a mixed public/private object as public. Director output cannot change parameter visibility.
+
+The server database now uses schema version 3 (the world-state schema is separate). On opening a v1/v2 database, the plugin creates a `.pre-v3-*.bak` backup and migrates legacy memories and embeddings to chat-scoped keys. IDs and embeddings are preserved. Lore previews carry both revision and a persistent generation; after clearing lore, create a fresh preview before importing again. Update the browser extension and server plugin together.
+
+Provider hostname resolution, interrupted responses, early cancellation, avatar matching, external settings changes, manual background updates, sprite anchor invalidation and LoRA routing to the selected image output have regression coverage. These local checks do not replace live SillyTavern/LLM/ComfyUI acceptance.
+
+### Memory relevance and retrieval budget
+
+Retrieval checks relevance separately from importance and recency. A textual cue, an explicit matching participant/location, or sufficient embedding similarity is required; empty queries and unmatched queries can return no memories. A location alone can recall an old conversation. Initial lexical/semantic thresholds are engineering heuristics (0.12/0.35), not calibrated probabilities; Unicode lexical fallback is not semantic understanding and common English/Russian function words are ignored as topical cues.
+
+Top-K caps the final fitting selection. Oversized records are skipped without truncation and subsequent relevant candidates can fill the remaining budget. Equivalent entries are suppressed only in retrieval; source records remain intact. Different times, entities, belief types and contradictory texts are retained. This does not implement psychological salience, associative traversal or cross-episode consolidation.
+
+### Consolidating accumulated episodes
+
+At the consolidation interval, POST receives up to 16 accepted, unprocessed events from the current session. **Consolidation context budget (tokens)** in Memory accepts 256–16000 (default 3000). It estimates the source JSON at characters / 4; it is not a model tokenizer or the total POST/output limit. No additional LLM call is made. Oversized episodes remain pending.
+
+Summaries retain validated `sourceMemoryIds`, preserve source visibility and never replace original events or mutate canon. Only accepted summaries acknowledge sources on the active branch; rollback restores pending work. The initial implementation groups events with identical visibility, accessible to the POST audience. The model may omit a summary for unrelated events. Semantic fidelity still requires live acceptance. Scene boundaries and initial personal ranking are described below.
+
+### Memory: scene boundaries, provenance and personal retrieval
+
+An accepted location/cast transition triggers consolidation on the next POST regardless of interval; no additional call is made. Without a next turn, processing waits. Weather and cast ordering do not count. Legacy records without a scene marker retain interval-based processing.
+
+Optional personal assertion `provenance` records holder, acquisition kind (`observed`, `reported`, `inferred`), confidence and verified current-RP evidence. Reports and inferences remain beliefs. Personal assertions are private to their holder and cannot supersede objective facts. Legacy entries do not receive invented provenance. Code verifies the quote, not its semantic sufficiency. Summaries preserve source provenance in `sourceAssertions`.
+
+Unambiguous recipient retrieval receives a bounded lexical ranking bonus from projected motivation, appraisals and causes of emotions/relationship changes. This is a heuristic, not a psychological model; eligibility and independent relevance remain mandatory. Already delivered shared memories are excluded; additional public episodes may enter the private block. Retrieval never changes confidence or canon.
+
+Local verification: 250 client tests. Live consolidation, provenance interpretation and personal relevance quality remain unverified.
+
+### Memory relationships and bounded chain retrieval
+
+The Director may attach `caused_by`, `causes`, `supports` or `contradicts` links to a current episode. Targets must come from the supplied current-session history (up to 8 entries and 1000 estimated tokens, capped by the consolidation context setting). This POST context is separate from consolidation sources. Current-RP evidence is required; invalid links are dropped without losing the episode. A link is an extracted interpretation, not proof of causality, and never increases confidence or replaces facts.
+
+A selected relevant memory may bring in up to two associated entries at depth at most two, including summary sources. `retrieval` metadata records edge type and traversal direction; reverse traversal does not reverse causality. All entries share the original top-K and token budget. Cycles cannot duplicate entries; oversized associates do not block remaining direct matches.
+
+Visibility, session/campaign scope, status and game time are filtered before traversal. References and embedded source metadata pointing to excluded entries are removed from output. Rollback uses only active-branch records. Empty or irrelevant queries do not activate traversal. Private retrieval retains audience restrictions. No confidence reinforcement, recursive summary consolidation or unbounded graph traversal is implemented.
+
+Local verification: 258 client tests. Live semantic accuracy of causal links remains unverified.
+
+### Optional memory accessibility
+
+Memory now offers **Use game-time memory accessibility** (off by default) and a decay half-life of 1–3650 game days (default 30). This is an engineering ranking heuristic, not a validated psychological model.
+
+Accessibility decays toward a nonzero floor of 0.25–0.75 depending on importance. Source text is never shortened or deleted. Missing or invalid episode/current game dates disable decay; real application downtime is irrelevant. Text/semantic cues can restore accessibility fully; matching location restores it partially. Independent relevance remains mandatory.
+
+Up to three eligible event records with `supports` links provide a bounded accessibility bonus. Multiple entries from one accepted turn count once; summaries, beliefs, disputed entries and hidden sources do not reinforce retrieval. Extracted links do not prove witness independence or factual truth. Repeated retrieval never writes state or increases confidence. Rollback or policy exclusion removes the respective bonus.
+
+Local tests cover invalid/missing dates, game intervals, cues, privacy, repeated retrieval, setting bounds and disabled-mode compatibility. Live comparisons are still needed to calibrate parameters and establish RP quality.
+
+### Lore versus current-state diagnostics
+
+Authors may bind an initial lore value to an entity parameter. World Info / character_book use `extensions.narrative_engine.baselines`; native library entries use `baselines`:
+
+```json
+[{"entityId":"Anna","parameter":"temperament","value":"quiet"}]
+```
+
+If accepted `Anna.params.temperament` becomes `assertive`, the reference gains `stateOverrides` containing baseline/current values and `current_state_wins`. **Diagnostics → Lore retrieval → divergences** exposes `lore_state_divergence`. Comparison uses only audience-projected public state: the author must declare the parameter with `visibility: public`. Hidden or unknown fields are neither compared nor disclosed. Original lore is not edited and no state delta is created.
+
+Up to 20 unique bindings per entry accept strings of at most 1000 characters, finite numbers and booleans, with strict type comparison. Unstructured prose is not automatically checked for semantic contradictions, psychological parameters are not inferred from adjectives, and reasons for change are not invented. Markdown/frontmatter and arbitrary-JSON mapping do not yet map bindings. Current-state precedence over reference lore applies even without bindings.
+
+### Repeatable blinded two-story probe
+
+The diagnostic probe selects six passages from `test_story.txt` and six from `tri_golosa_nad_propastiu.md`, with two requests per passage. The same historical text is compared as plain references versus explicitly scoped earlier reference material. This tests temporal story grounding, not the full runtime or all new memory features.
+
+`node scripts/run-memory-study.mjs --source-dir PATH --output NEW_DIRECTORY` verifies source hashes and writes requests without network calls. Add `--run --endpoint URL --model MODEL` for an OpenAI-compatible base URL (e.g. ending in `/v1`); authentication optionally uses `NE_STUDY_API_KEY`. Defaults: 24 sequential calls, temperature 0.2, max_tokens 1800, 120-second timeout, no automatic retry. `--repeats 1..5` multiplies calls.
+
+The runner supports `--evidence-refs` to use the production evidence catalog instead of copied quotes. Optional `--options FILE.json` accepts only `reasoning_effort` and `chat_template_kwargs` provider options (for example, disabling thinking when supported). It stops after two consecutive invalid responses. A valid reference proves only that a source fragment exists, not that the interpretation is true. This is a narrow paired semantic probe, not complete runtime acceptance.
+
+The output directory must be new. Outputs are `requests.json`, `results.json` with timing/usage, separate arm `key.json`, and `review-ru.json` for blinded Russian-language human review. Do not show the reviewer requests or the arm key. Evaluation criteria and case IDs never enter model requests. Valid JSON and exact quotes do not establish emotional correctness. Original stories remain outside the repository; the manifest stores hashes and passage spans. Keep run artifacts under `reports/` and out of commits.
+
+Experimental semantic decomposition: `scripts/run-event-memory-study.mjs --baseline PRIOR_REPORT_DIRECTORY --output NEW_DIRECTORY --endpoint BASE_URL` reuses twelve saved plain-reference requests, separates physical event extraction from psychology, and now enforces a shared 40-second deadline per case (target 30 seconds). `scripts/run-memory-claim-audit.mjs --input EVENT_REPORT_DIRECTORY --output NEW_DIRECTORY --endpoint BASE_URL` can replay a claim verifier when at least 12 seconds remain in that budget. This replay sums separately measured calls; it is not an end-to-end scheduler acceptance test. Neither experiment changes production canon; failed/late audit results are not accepted. An aborted HTTP request does not guarantee server-side generation cancellation.
+
+Offline typed-event regressions reuse the existing state engine through an experimental adapter (`scripts/typed-story-events.mjs`). `node scripts/prepare-typed-story-study.mjs NEW_DIRECTORY` prepares twelve authored short cases without network calls or expected answers in model messages. These are development regressions, not an independent holdout, and do not establish accuracy on another RP writer such as Cydonia. The adapter is not wired into the production runtime; current/past and fact/claim classification remain unverified model responsibilities.

@@ -1,3 +1,4 @@
+import { applyDevelopment, validateDevelopment } from './development.js';
 import { clone } from '../utils/object.js';
 import { assertSafeData } from './entities.js';
 
@@ -80,6 +81,7 @@ export function applySimulation(previous, state, input, metadata = {}) {
         if (e.condition) { exact(e.condition,['eventId']); text(e.condition.eventId); }
         if (e.effects) { exact(e.effects,['weather','lighting']); for (const v of Object.values(e.effects)) text(v); }
         sim.events[e.id] = {...clone(e), participants: e.participants || [], visibleTo: e.visibleTo || [],
+            sourceTurn: String(metadata.idempotencyKey ?? (Number.isInteger(metadata.messageIndex) ? `message:${metadata.messageIndex}` : `revision:${state.revision}`)),
             gameTime: now === null ? null : gameStamp(now), occurredAt: e.status === 'occurred' ? clock : null,
             ...(e.dueGameTime ? {dueMinute:dueMinute(e.dueGameTime,now)} : {})};
     }
@@ -98,7 +100,7 @@ export function applySimulation(previous, state, input, metadata = {}) {
         }
     }
     for (const update of list(input.characters)) {
-        exact(update,['characterId','profile','motivation','mood','body','appraisals','emotions','expectations','expressedVsFelt','processing','basis','consistency']);
+        exact(update,['characterId','profile','motivation','mood','body','appraisals','emotions','expectations','expressedVsFelt','processing','basis','consistency','development']);
         const id = update.characterId; checkCharacter(id);
         if (!author && players.has(id)) fail('player agency: internal state is author-controlled');
         if (!author && update.basis === 'player_assertion') fail('NPC agency: player assertion is not evidence');
@@ -121,6 +123,10 @@ export function applySimulation(previous, state, input, metadata = {}) {
                 const due = dueMinute('next_morning',now);
                 c.pendingProcessing.push({eventId:a.eventId,kind:'emotional_aftermath',dueGameTime:gameStamp(due),dueMinute:due,status:'pending'});
             }
+        }
+        if(update.development) {
+            if(!light) fail('development requires active character and enabled inner life');
+            applyDevelopment(c,update.development,sim.events,id,now===null?null:gameStamp(now));
         }
         if (update.emotions) c.emotions = list(update.emotions).map(e => {
             exact(e,['type','intensity','causeEventId','toward','decay','halfLifeMinutes']); text(e.type); number(e.intensity); cause(sim,e.causeEventId,id);
@@ -210,6 +216,7 @@ export function validateSimulationState(state) {
     }
     for(const [id,c] of Object.entries(sim.characters)) {
         if(c.characterId!==id) fail('character key mismatch');
+        validateDevelopment(c,sim.events,id);
         for(const e of storedList(c.emotions)) {text(e.type);number(e.intensity);cause(sim,e.causeEventId,id);if(!['none','per_scene','exponential'].includes(e.decay)) fail('invalid stored decay');if(e.decay==='exponential')number(e.halfLifeMinutes,1,525600);}
         for(const a of storedList(c.appraisals)) {cause(sim,a.eventId,id);text(a.meaning);number(a.significance);number(a.confidence);}
         for(const pending of storedList(c.pendingProcessing)) {cause(sim,pending.eventId,id);if(!['pending','due','processed'].includes(pending.status))fail('invalid processing status');number(pending.dueMinute,-10000000000,10000000000);}

@@ -1,0 +1,229 @@
+{
+  "kind": "authored-development-regressions-not-holdout",
+  "cases": [
+    {
+      "id": "take-coat",
+      "text": "Анна взяла куртку со стола.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "take",
+          "object": "coat",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "check": {
+        "entity": "coat",
+        "rel": "holds",
+        "target": "anna"
+      }
+    },
+    {
+      "id": "wear-coat",
+      "text": "Анна взяла куртку со стола.\nЗатем надела её.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "take",
+          "object": "coat",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        },
+        {
+          "id": "e2",
+          "actor": "anna",
+          "verb": "wear",
+          "object": "coat",
+          "time": "current",
+          "modality": "fact",
+          "line": 1
+        }
+      ],
+      "check": {
+        "entity": "coat",
+        "rel": "wears",
+        "target": "anna"
+      }
+    },
+    {
+      "id": "remove-coat",
+      "text": "Анна сняла куртку и оставила её в руках.",
+      "setup": "worn-coat",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "remove",
+          "object": "coat",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "check": {
+        "entity": "coat",
+        "rel": "holds",
+        "target": "anna"
+      }
+    },
+    {
+      "id": "put-cup",
+      "text": "Анна поставила чашку на стол.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "put",
+          "object": "cup",
+          "time": "current",
+          "modality": "fact",
+          "line": 0,
+          "destination": "table"
+        }
+      ],
+      "check": {
+        "entity": "cup",
+        "rel": "on",
+        "target": "table"
+      }
+    },
+    {
+      "id": "exit-car",
+      "text": "Борис вышел из машины и перешёл на улицу.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "boris",
+          "verb": "relocate",
+          "object": "street",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "check": {
+        "entity": "boris",
+        "rel": "in",
+        "target": "street",
+        "posture": null
+      }
+    },
+    {
+      "id": "past-coat",
+      "text": "Анна вспомнила вчерашний вечер: тогда она взяла куртку. Сейчас куртка на столе.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "take",
+          "object": "coat",
+          "time": "past",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "unchanged": true
+    },
+    {
+      "id": "wish-coat",
+      "text": "Анна захотела взять куртку, но не стала.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "take",
+          "object": "coat",
+          "time": "current",
+          "modality": "wish",
+          "line": 0
+        }
+      ],
+      "unchanged": true
+    },
+    {
+      "id": "claim-coat",
+      "text": "Борис сказал: «Анна уже надела куртку». Подтверждения этому нет.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "wear",
+          "object": "coat",
+          "time": "current",
+          "modality": "claim",
+          "line": 0
+        }
+      ],
+      "unchanged": true
+    },
+    {
+      "id": "unknown-time",
+      "text": "Запись сообщает, что Борис перешёл на улицу. Когда это было, неизвестно.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "boris",
+          "verb": "relocate",
+          "object": "street",
+          "time": "unknown",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "unchanged": true
+    },
+    {
+      "id": "attached-handle",
+      "text": "Борис взялся за ручку двери автомобиля. Ручку он не отрывал.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "boris",
+          "verb": "take",
+          "object": "handle",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "expectedError": "not portable"
+    },
+    {
+      "id": "bruise-not-clothes",
+      "text": "На руке Анны был синяк.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "wear",
+          "object": "bruise",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "expectedError": "not portable"
+    },
+    {
+      "id": "unknown-object",
+      "text": "Анна взяла куртку со стола.",
+      "events": [
+        {
+          "id": "e1",
+          "actor": "anna",
+          "verb": "take",
+          "object": "chicken",
+          "time": "current",
+          "modality": "fact",
+          "line": 0
+        }
+      ],
+      "expectedError": "Unknown"
+    }
+  ]
+}

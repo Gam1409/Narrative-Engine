@@ -1,3 +1,4 @@
+import { loreRequest } from '../lore/client.js';
 import { getContext, getChatFingerprint } from '../context/stContext.js';
 import { editVisualAnchor } from './visualAnchor.js';
 import { showVisualStage } from './visualStage.js';
@@ -32,6 +33,7 @@ export function subsystemStatus(runtime) {
 
 export function createUiActions(runtime) {
     return {
+        loreRequest: (path, body) => loreRequest(getContext(), path, body),
         requestLayerIllustration: async () => runtime.visualDirector.request({fromLayers:true}),
         visualMetrics: async () => runtime.visualDirector.api(`metrics/${getChatFingerprint(getContext())}`),
         regenerateBackground: async () => runtime.visualDirector.request({backgroundOnly:true,forceBackground:true}),
@@ -52,6 +54,7 @@ export function createUiActions(runtime) {
         viewState: async () => inspectionState(runtime),
         viewTimeline: async () => runtime.stateManager.snapshot().timeline,
         viewPlotThreads: async () => runtime.stateManager.snapshot().threads,
+        clearData: async (kind, scope) => runtime.clearData(kind, scope),
         viewMemories: async () => runtime.memoryStore.items,
         viewLastDirectorPacket: async () => inspectionPacket(runtime) || 'No Director packet has been created yet.',
         rebuildState: async () => { await runtime.markDirtyAndRebuild(0); return 'State rebuilt.'; },
@@ -85,6 +88,7 @@ export function runtimeUiStatus(runtime) {
         scene: state.scene || {}, time: state.timeline || {},
         presentCharacters: state.scene?.present || Object.keys(state.characters || {}),
         threads: state.threads || {}, retrievedMemories: diagnostics.retrievedMemories,
+        loreStatus: diagnostics.loreStatus, narrativeQuality: diagnostics.narrativeQuality, packetAssembly: diagnostics.packetAssembly, rpTextStatus: diagnostics.rpTextStatus,
         lastAudit: diagnostics.lastAudit, spriteDecisions: diagnostics.lastSprites,
         tokenEstimates: diagnostics.lastPacket ? Math.ceil(diagnostics.lastPacket.length / 4) : 0,
         storageStatus: !runtime.stateReady ? 'Unavailable: no verified snapshot' : runtime.storage?.degraded ? 'Degraded: local copy in use' : 'Connected',

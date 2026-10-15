@@ -1,11 +1,12 @@
 import { textHash, cosine, lexicalTokens } from './semantic.js';
-import { eligibleMemory } from './policy.js';
-import { retrieveMemories } from './retrieval.js';
+import { eligibleMemory, audienceMemories } from './policy.js';
+import { retrieveMemories, hasMemoryQuery } from './retrieval.js';
 
 export class VectorSearch {
     constructor(context, chatId, fetchImpl = globalThis.fetch) { Object.assign(this, { context, chatId, fetch: fetchImpl }); }
     async search(memories, query, options) {
-        const candidates = memories.filter(m => eligibleMemory(m, options.policy));
+        if (!hasMemoryQuery(query) || options.topK === 0 || options.tokenBudget === 0) return [];
+        const candidates = audienceMemories(memories, options.policy).filter(m => eligibleMemory(m, options.policy));
         const similarities = {};
         const queryText = [query.message, query.location, ...(query.characters || []), ...(query.topics || [])].filter(Boolean).join(' ') || 'current scene';
         const queryHash = await textHash(queryText);

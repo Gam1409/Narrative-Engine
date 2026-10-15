@@ -4,13 +4,20 @@
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
     </div>
     <div class="inline-drawer-content">
+        <button type="button" class="menu_button" data-open-ne-settings aria-haspopup="dialog">Show settings</button>
+    </div>
+    <dialog id="ne-settings-window" class="ne-settings-window" aria-labelledby="ne-title">
 <section id="narrative-engine-settings" class="ne-console" aria-labelledby="ne-title">
     <header class="ne-console__header">
+        <button type="button" class="menu_button ne-settings-close" data-close-ne-settings aria-label="Close settings">×</button>
         <div>
             <h3 id="ne-title">Narrative Engine</h3>
             <p class="ne-console__lede">Continuity, memory, and direction for the current story.</p>
         </div>
         <div class="ne-status-stack">
+            <label class="ne-settings-language"><span>Interface language</span>
+                <select class="text_pole" data-setting="uiLanguage" aria-label="Interface language"><option value="en">English</option><option value="ru">Русский</option></select>
+            </label>
             <span id="ne-provider-badge" class="ne-status-badge" data-state="unknown" role="status" aria-live="polite">
                 <span class="ne-status-badge__dot" aria-hidden="true"></span>
                 <span data-status-label>Not checked</span>
@@ -21,8 +28,54 @@
 
     <div id="ne-notice" class="ne-notice" role="status" aria-live="polite" hidden></div>
 
+    <nav class="ne-settings-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" role="tab" id="ne-tab-main" aria-controls="ne-page-main" data-ne-tab="main">General</button>
+        <button type="button" role="tab" id="ne-tab-memory" aria-controls="ne-page-memory" data-ne-tab="memory">Memory & pacing</button>
+        <button type="button" role="tab" id="ne-tab-record" aria-controls="ne-page-record" data-ne-tab="record">Story record</button>
+        <button type="button" role="tab" id="ne-tab-simulation" aria-controls="ne-page-simulation" data-ne-tab="simulation">Characters & world</button>
+        <button type="button" role="tab" id="ne-tab-lore" aria-controls="ne-page-lore" data-ne-tab="lore">Lore</button>
+        <button type="button" role="tab" id="ne-tab-visual" aria-controls="ne-page-visual" data-ne-tab="visual">Visuals</button>
+        <button type="button" role="tab" id="ne-tab-diagnostics" aria-controls="ne-page-diagnostics" data-ne-tab="diagnostics">Diagnostics</button>
+        <button type="button" role="tab" id="ne-tab-data" aria-controls="ne-page-data" data-ne-tab="data">Data management</button>
+    </nav>
     <div class="ne-spine">
-        <section class="ne-spine__section" aria-labelledby="ne-engine-heading">
+        <section class="ne-spine__section" data-ne-group="data">
+            <h4>Data management</h4>
+            <p>Deletion requires confirmation. Export important data first. Server cleanup affects only your account; local cleanup affects this browser. Chat messages, settings and generated images remain.</p>
+            <button type="button" class="menu_button" data-action="exportState">Export state</button>
+            <h4>Memory and RAG</h4>
+            <p>Remove episodic memories, their journal copies and search indexes. Events, relationships and current state remain.</p>
+            <div class="ne-actions">
+                <button type="button" class="menu_button" data-action="clearData" data-clear-kind="memory" data-clear-scope="session">Clear session memory and RAG</button>
+                <button type="button" class="menu_button" data-action="clearData" data-clear-kind="memory" data-clear-scope="all">Clear all memory and RAG</button>
+            </div>
+            <h4>State and history</h4>
+            <p>Reset extension state, relationships, events, checkpoints and memory. Existing chat messages can be interpreted again later.</p>
+            <div class="ne-actions">
+                <button type="button" class="menu_button" data-action="clearData" data-clear-kind="state" data-clear-scope="session">Reset current session</button>
+                <button type="button" class="menu_button" data-action="clearData" data-clear-kind="state" data-clear-scope="all">Reset all sessions</button>
+            </div>
+            <h4>Lore libraries</h4>
+            <p>Lore is shared across sessions. Remove all your imported libraries and stored source copies on the server.</p>
+            <button type="button" class="menu_button" data-action="clearData" data-clear-kind="lore" data-clear-scope="all">Delete all lore libraries</button>
+            <h4>Full data reset</h4>
+            <button type="button" class="menu_button" data-action="clearData" data-clear-kind="all" data-clear-scope="all">Delete all state, memory, RAG and lore</button>
+        </section>
+        <section class="ne-spine__section" data-ne-group="lore">
+            <h4>World lore</h4>
+            <p>Reference material, not canon. Requires the server plugin and RP model autonomy. Only explicitly public entries reach the models.</p>
+            <label class="ne-field"><span>Enable lore retrieval</span><input type="checkbox" data-setting="loreEnabled"></label>
+            <label class="ne-field"><span>Library ID</span><input class="text_pole" data-setting="loreLibraryId" maxlength="64" pattern="[a-zA-Z0-9_\-]+"></label>
+            <p>Choose World Info JSON, a character JSON card or a Markdown file. Entries start hidden; select checkboxes to make them public. Re-import replaces this library and marks missing entries deprecated.</p>
+            <details><summary>Custom JSON mapping</summary>
+                <p>Leave empty for standard formats. Any tags can be used for search. Private tags remain locked.</p>
+                <label class="ne-field"><span>Mapping profile JSON</span><textarea class="text_pole" data-lore-mapping rows="8" maxlength="20000" spellcheck="false" placeholder='{"entriesPath":"$.items[*]","fields":{"id":"$.id","body":"$.text","keys":"$.keys"}}'></textarea></label>
+            </details>
+            <input type="file" accept=".json,.md,application/json,text/markdown" data-lore-file aria-label="Lore file">
+            <div class="ne-actions"><button type="button" class="menu_button" data-lore-preview-button>Preview import</button><button type="button" class="menu_button" data-lore-save disabled>Save reviewed library</button><button type="button" class="menu_button" data-lore-inspect>Inspect library</button><button type="button" class="menu_button" data-lore-export="library">Download library JSON</button><button type="button" class="menu_button" data-lore-export="source">Download original source</button></div>
+            <p data-lore-status role="status"></p><div data-lore-preview class="ne-lore-preview"></div>
+        </section>
+        <section class="ne-spine__section" data-ne-group="main" aria-labelledby="ne-engine-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
             <div class="ne-section-heading">
                 <h4 id="ne-engine-heading">Engine</h4>
@@ -70,7 +123,7 @@
             </button>
         </section>
 
-        <section class="ne-spine__section" aria-labelledby="ne-modules-heading">
+        <section class="ne-spine__section" data-ne-group="main" aria-labelledby="ne-modules-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
             <div class="ne-section-heading">
                 <div>
@@ -92,7 +145,7 @@
             </div>
         </section>
 
-        <section class="ne-spine__section" aria-labelledby="ne-profile-heading">
+        <section class="ne-spine__section" data-ne-group="main" aria-labelledby="ne-profile-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
             <div class="ne-section-heading">
                 <div>
@@ -166,7 +219,7 @@
             </fieldset>
         </section>
 
-        <section class="ne-spine__section" aria-labelledby="ne-rhythm-heading">
+        <section class="ne-spine__section" data-ne-group="memory" aria-labelledby="ne-rhythm-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
             <div class="ne-section-heading">
                 <div>
@@ -174,8 +227,15 @@
                     <p>Keep the working context bounded as the chat grows.</p>
                 </div>
             </div>
-            <div class="ne-fields ne-fields--numbers">
-                <label class="ne-field" for="ne-audit-mode">
+            <fieldset class="ne-settings-group">
+                <legend>Response control</legend>
+<label class="ne-field">
+                    <span>RP model autonomy</span>
+                    <input type="checkbox" data-setting="rpAutonomy">
+                    <small>The RP model owns NPC choices and prose. Director observes and audits; disputed state stays unconfirmed, without rewriting the displayed text.</small>
+                </label>
+                <div class="ne-fields ne-fields--numbers">
+<label class="ne-field" for="ne-audit-mode">
                     <span>Audit</span>
                     <select id="ne-audit-mode" class="text_pole" data-setting="auditMode">
                         <option value="off">Off</option>
@@ -187,26 +247,51 @@
                     <span>Minimum confidence</span>
                     <input id="ne-minimum-confidence" class="text_pole" type="number" min="0" max="1" step="0.05" data-setting="minimumConfidence" title="Less certain changes remain pending. Missing confidence is treated as 0.5.">
                 </label>
-                <label class="ne-field" for="ne-memory-top-k">
+                <label class="ne-field"><span>Repetition monitoring</span>
+                    <select class="text_pole" data-setting="antiSlopMode" aria-describedby="ne-repetition-help"><option value="off">Off</option><option value="observe">Observe only</option><option value="soft">Soft feedback</option></select>
+                </label>
+                <label class="ne-field"><span>Quality window</span><input class="text_pole" type="number" min="4" max="12" step="1" data-setting="qualityWindow"></label>
+                </div>
+                <p id="ne-repetition-help" class="ne-help">Observe only never changes prompts. Soft feedback adds one optional style hint when RP model autonomy is enabled; prose and canon stay unchanged.</p>
+            </fieldset>
+            <fieldset class="ne-settings-group">
+                <legend>Memory and turn intervals</legend>
+                <div class="ne-fields ne-fields--numbers">
+<label class="ne-field" for="ne-memory-top-k">
                     <span>Memory Top-K</span>
                     <input id="ne-memory-top-k" class="text_pole" type="number" min="1" max="50" step="1" data-setting="memoryTopK">
+                </label>
+                <label class="ne-field" for="ne-memory-consolidation-budget">
+                    <span>Consolidation context budget (tokens)</span>
+                    <input id="ne-memory-consolidation-budget" class="text_pole" type="number" min="256" max="16000" step="1" data-setting="memoryConsolidationTokenBudget" aria-describedby="ne-consolidation-budget-help">
+                </label>
+                <p id="ne-consolidation-budget-help" class="ne-help ne-wide">Estimated input limit for past episodes (characters / 4), not the whole POST request or model output. Oversized episodes stay pending; default: 3000 tokens.</p>
+                <label class="ne-field" for="ne-memory-consolidation">
+                    <span>Memory consolidation</span>
+                    <input id="ne-memory-consolidation" class="text_pole" type="number" min="2" max="100" step="1" data-setting="memoryConsolidationInterval">
                 </label>
                 <label class="ne-field" for="ne-plot-interval">
                     <span>Plot interval</span>
                     <input id="ne-plot-interval" class="text_pole" type="number" min="1" max="100" step="1" data-setting="plotInterval">
                 </label>
-                <label class="ne-field" for="ne-memory-consolidation">
-                    <span>Memory consolidation</span>
-                    <input id="ne-memory-consolidation" class="text_pole" type="number" min="2" max="100" step="1" data-setting="memoryConsolidationInterval">
-                </label>
                 <label class="ne-field" for="ne-state-checkpoint">
                     <span>State checkpoint</span>
                     <input id="ne-state-checkpoint" class="text_pole" type="number" min="2" max="100" step="1" data-setting="checkpointInterval">
                 </label>
-            </div>
+                </div>
+            </fieldset>
         </section>
 
-        <details class="ne-spine__section"><summary>Memory ranking weights</summary>
+        <section class="ne-spine__section" data-ne-group="memory" aria-labelledby="ne-memory-availability-heading">
+            <h3 id="ne-memory-availability-heading">Memory accessibility</h3>
+            <label class="ne-field ne-field--checkbox"><input type="checkbox" data-setting="memoryAvailability"><span>Use game-time memory accessibility</span></label>
+            <div class="ne-fields ne-fields--numbers">
+                <label class="ne-field" for="ne-memory-half-life"><span>Decay half-life (game days)</span><input id="ne-memory-half-life" class="text_pole" type="number" min="1" max="3650" step="1" data-setting="memoryAvailabilityHalfLifeDays"></label>
+            </div>
+            <p class="ne-help">Optional ranking heuristic. Important events remain accessible; cues and supporting episodes help recall. Records and confidence never change. Unknown game time disables decay; reading a memory does not reinforce it.</p>
+        </section>
+
+        <details class="ne-spine__section ne-settings-disclosure" data-ne-group="memory"><summary><span class="ne-spine__node" aria-hidden="true"></span>Memory ranking weights</summary>
             <div class="ne-fields ne-fields--numbers">
                     <label class="ne-field"><span>Similarity</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.semantic"></label>
                     <label class="ne-field"><span>Importance</span><input class="text_pole" type="number" min="0" max="2" step="0.05" data-setting="memoryWeights.importance"></label>
@@ -217,7 +302,7 @@
             </div>
         </details>
 
-        <section class="ne-spine__section" aria-labelledby="ne-record-heading">
+        <section class="ne-spine__section" data-ne-group="record" aria-labelledby="ne-record-heading">
             <span class="ne-spine__node" aria-hidden="true"></span>
             <div class="ne-section-heading">
                 <div>
@@ -238,7 +323,7 @@
             </div>
         </section>
 
-        <details class="ne-spine__section ne-debug" data-debug-panel>
+        <details class="ne-spine__section ne-debug" data-debug-panel data-ne-group="diagnostics">
             <summary>
                 <span class="ne-spine__node" aria-hidden="true"></span>
                 <span><strong>Director trace</strong><small>Runtime details and recovery tools</small></span>
@@ -254,6 +339,10 @@
                     <div><dt>Present characters</dt><dd data-status="presentCharacters">—</dd></div>
                     <div><dt>Threads</dt><dd data-status="threads">—</dd></div>
                     <div><dt>Retrieved memories</dt><dd data-status="retrievedMemories">—</dd></div>
+                    <div><dt>Narrative quality observations</dt><dd data-status="narrativeQuality">—</dd></div>
+                    <div><dt>Lore retrieval</dt><dd data-status="loreStatus">—</dd></div>
+                    <div><dt>Packet assembly</dt><dd data-status="packetAssembly">—</dd></div>
+                    <div><dt>RP text and state</dt><dd data-status="rpTextStatus">—</dd></div>
                     <div><dt>Last audit</dt><dd data-status="lastAudit">—</dd></div>
                     <div><dt>Sprite decisions</dt><dd data-status="spriteDecisions">—</dd></div>
                     <div><dt>Token estimates</dt><dd data-status="tokenEstimates">—</dd></div>
@@ -277,7 +366,7 @@
             </div>
         </details>
 
-    <details class="ne-spine__section ne-visual-settings ne-lower-section">
+    <details class="ne-spine__section ne-visual-settings ne-lower-section" data-ne-group="visual">
         <summary><span class="ne-spine__node" aria-hidden="true"></span><span><strong>Visual Director</strong><small>Images, workflows and generation controls</small></span><span class="ne-disclosure" aria-hidden="true"></span></summary>
         <div class="ne-visual-content">
         <label class="ne-check"><input type="checkbox" data-setting="visualEnabled"> Enable image generation</label>
@@ -293,7 +382,7 @@
         <label class="ne-field">Anima variant<select class="text_pole" data-setting="visualAnimaVariant"><option value="base">Base / Preview — 30 steps, CFG 4</option><option value="aesthetic">Aesthetic — 30 steps, CFG 4</option><option value="turbo">Turbo — 10 steps, CFG 1</option></select></label>
         <label class="ne-field" data-anima-only>Anima text encoder <input class="text_pole" data-setting="visualTextEncoder" placeholder="qwen_3_06b_base.safetensors"></label>
         <label class="ne-field" data-anima-only>Anima VAE <input class="text_pole" data-setting="visualVae" placeholder="qwen_image_vae.safetensors"></label>
-        <p class="ne-help">Anima uses separate diffusion model, text encoder and VAE files. Variant settings apply to built-in Anima/integrated workflows; imported recipes keep their own sampler settings.</p>
+        <p class="ne-help">Anima uses separate diffusion model, text encoder and VAE files. Variant settings apply to built-in Anima/integrated workflows; imported generation presets keep their own sampler settings.</p>
         <button type="button" class="menu_button" data-anima-preset>Use built-in Anima workflows for all three image types</button>
         <small>This replaces the three workflow selections, but does not enable automatic generation or download models. Transparent sprites also require BiRefNet.</small>
         </div>
@@ -301,7 +390,7 @@
         <small>This button contacts ComfyUI, but does not generate images. You can configure everything below while it is stopped.</small>
         </div></details>
         <details class="ne-visual-group" open><summary>2. Workflows for each image type</summary><div class="ne-fields">
-        <p class="ne-help">Choose a built-in recipe, a server recipe name, or an imported workflow ID. Each image type keeps its own selection.</p>
+        <p class="ne-help">Choose a built-in generation preset, a server generation preset name, or an imported workflow ID. Each image type keeps its own selection.</p>
         <label class="ne-field">Illustration workflow<input class="text_pole" data-setting="visualWorkflow" list="ne-user-workflows"></label><small data-workflow-name="visualWorkflow"></small>
         <label class="ne-field">Background workflow<input class="text_pole" data-setting="visualBackgroundWorkflow" list="ne-user-workflows"></label><small data-workflow-name="visualBackgroundWorkflow"></small>
         <label class="ne-field">Sprite workflow<input class="text_pole" data-setting="visualSpriteWorkflow" list="ne-user-workflows" placeholder="Leave empty for backgrounds only"></label><small data-workflow-name="visualSpriteWorkflow"></small>
@@ -312,7 +401,7 @@
         <small>Added to built-in prompts. Imported templates place these texts using the My positive / My negative chips. Keep additions consistent with the story.</small>
         <div class="ne-workflow-library">
           <strong>Your imported workflows</strong>
-          <p class="ne-help">Import a ComfyUI API JSON or a recipe with bindings. Saved in extension settings; importing uses no GPU.</p>
+          <p class="ne-help">Import a ComfyUI API JSON or a generation preset with bindings. Saved in extension settings; importing uses no GPU.</p>
           <input type="file" accept=".json,application/json" data-workflow-file hidden>
           <button type="button" class="menu_button" data-workflow-import>Import workflow JSON</button>
           <label class="ne-field">Saved workflows<select data-workflow-library></select></label>
@@ -342,7 +431,7 @@
         <button type="button" class="menu_button" data-action="editVisualCard">Edit current character LoRA</button>
         <label class="ne-field">Shared art style <input class="text_pole" data-setting="visualStyle" placeholder="anime illustration, clean line art, soft cel shading"></label>
         <label class="ne-field">Camera / framing <input class="text_pole" data-setting="visualCamera" placeholder="eye-level, three-quarter view, medium shot"></label>
-        <small>Matching recipes: background_integrated and sprite_integrated. Transparent sprites require BiRefNet. The shared style applies to all three; camera changes do not regenerate a cached background.</small>
+        <small>Matching generation presets: background_integrated and sprite_integrated. Transparent sprites require BiRefNet. The shared style applies to all three; camera changes do not regenerate a cached background.</small>
         </div></details>
         <details class="ne-visual-group"><summary>Advanced: partial updates and conditioning</summary><div class="ne-fields">
         <label class="ne-check"><input type="checkbox" data-setting="visualPartial"> Use a partial-update workflow after a successful image</label>
@@ -357,7 +446,7 @@
         <label class="ne-field">Wait limit (milliseconds) <input class="text_pole" type="number" min="10000" max="600000" step="1000" data-setting="visualLayersTimeoutMs"></label>
         <label class="ne-field">Layer framing <select class="text_pole" data-setting="visualLayerCamera"><option>full body, eye level</option><option>medium shot, eye level</option><option>wide shot, eye level</option></select></label>
         <label class="ne-field">Layer refinement strength <input class="text_pole" type="number" min="0.35" max="0.55" step="0.01" data-setting="visualLayerDenoise"></label>
-        <p class="ne-help">Layers use a dedicated recipe with up to two characters. Configure a background and transparent sprite workflow first. Waiting runs in the background; scene changes cancel it. The fallback option generates a fresh image immediately if layers are unavailable. Refinement can change clothing details; image quality still needs testing.</p>
+        <p class="ne-help">Layers use a dedicated generation preset with up to two characters. Configure a background and transparent sprite workflow first. Waiting runs in the background; scene changes cancel it. The fallback option generates a fresh image immediately if layers are unavailable. Refinement can change clothing details; image quality still needs testing.</p>
         </div></details>
         <div class="ne-action-list ne-visual-actions">
         <button type="button" class="menu_button" data-action="requestIllustration" data-requires-visual data-viewer-title="Illustration request">Generate illustration</button>
@@ -370,7 +459,7 @@
         </div>
         </div>
     </details>
-    <details class="ne-spine__section ne-lower-section">
+    <details class="ne-spine__section ne-lower-section" data-ne-group="simulation">
         <summary><span class="ne-spine__node" aria-hidden="true"></span><span><strong>Inner life and world simulation</strong><small>Character reactions and the pace of the world</small></span><span class="ne-disclosure" aria-hidden="true"></span></summary>
         <div class="ne-fields ne-fields--numbers">
             <label class="ne-field">Inner life <select class="text_pole" data-setting="innerLifeMode"><option value="off">Off (simple emotions)</option><option value="light">Light</option><option value="full">Full</option></select></label>
@@ -396,5 +485,5 @@
         </form>
     </dialog>
 </section>
-    </div>
+    </dialog>
 </div>

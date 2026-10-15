@@ -2,7 +2,6 @@
 
 const http = require('node:http');
 const https = require('node:https');
-const net = require('node:net');
 const { validateProviderUrl } = require('./security');
 
 function completionUrl(base) {
@@ -16,6 +15,14 @@ function requestJson(url, options, body, allowedAddresses, timeoutMs, controller
     return new Promise((resolve, reject) => {
         const controller = new AbortController();
         controllers.add(controller);
+        let timer, settled = false;
+        const finish = (error, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            controllers.delete(controller);
+            if (error) reject(error); else resolve(value);
+        };
         const transport = url.protocol === 'https:' ? https : http;
         const req = transport.request(url, {
             ...options,
@@ -25,7 +32,8 @@ function requestJson(url, options, body, allowedAddresses, timeoutMs, controller
                     if (error) return callback(error);
                     const match = addresses.find((item) => allowedAddresses.has(item.address));
                     if (!match) return callback(new Error('Director DNS result changed after validation'));
-                    callback(null, match.address, match.family);
+                    if (lookupOptions.all) callback(null, addresses.filter(item => allowedAddresses.has(item.address)));
+                    else callback(null, match.address, match.family);
                 });
             },
         }, (response) => {
@@ -36,17 +44,21 @@ function requestJson(url, options, body, allowedAddresses, timeoutMs, controller
                 if (total > (binary ? 16 : 2) * 1024 * 1024) controller.abort(new Error('Director response is too large'));
                 else chunks.push(chunk);
             });
+            response.on('error', error => finish(error));
+            response.on('aborted', () => finish(new Error('Director response aborted')));
+            response.on('close', () => {
+                if (!response.complete) finish(new Error('Director response closed before completion'));
+            });
             response.on('end', () => {
                 const text = Buffer.concat(chunks).toString('utf8');
-                if (response.statusCode < 200 || response.statusCode >= 300) return reject(Object.assign(new Error(`Director returned HTTP ${response.statusCode}`), { retryable: response.statusCode >= 500 }));
-                if (binary) return resolve({bytes:Buffer.concat(chunks),contentType:response.headers['content-type'] || ''});
-                try { resolve(JSON.parse(text)); } catch { reject(new Error('Director returned invalid JSON')); }
+                if (response.statusCode < 200 || response.statusCode >= 300) return finish(Object.assign(new Error(`Director returned HTTP ${response.statusCode}`), { retryable: response.statusCode >= 500 }));
+                if (binary) return finish(null, {bytes:Buffer.concat(chunks),contentType:response.headers['content-type'] || ''});
+                try { finish(null, JSON.parse(text)); } catch { finish(new Error('Director returned invalid JSON')); }
             });
         });
-        const timer = setTimeout(() => controller.abort(new Error('Director request timed out')), timeoutMs);
+        timer = setTimeout(() => controller.abort(new Error('Director request timed out')), timeoutMs);
         timer.unref?.();
-        req.on('error', reject);
-        req.on('close', () => { clearTimeout(timer); controllers.delete(controller); });
+        req.on('error', error => finish(error));
         req.end(body);
     });
 }

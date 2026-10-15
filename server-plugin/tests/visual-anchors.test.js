@@ -224,3 +224,29 @@ test('returning to the anchor expression reuses its original PNG without GPU wor
  const reused=q.enqueue('u:chat',{...base,localExpressions:true,requestKey:'return-neutral'});
  assert.equal(reused.status,'done');assert.equal(reused.reused,true);assert.equal(reused.asset.id,asset.id);
 });
+
+
+test('prompt overrides and Anima variant changes cannot reuse an incompatible face anchor', t => {
+    const q=setup(t), base=input(), job=q.enqueue('u:chat',base);
+    const asset=q.assets.put(q.get('u:chat',job.id,true),image());
+    q.anchors.pin('u:chat',asset.id,{x:24,y:16,width:32,height:32});
+    for (const [index, changes] of [
+        {userPositive:'watercolor style'}, {userNegative:'flat shading'}, {animaVariant:'turbo'},
+    ].entries()) {
+        const changed=q.enqueue('u:chat',{
+            ...base,...changes,localExpressions:true,requestKey:'changed-anchor-'+index,
+        });
+        assert.equal(changed.status,'queued',changed.error);
+        assert.equal(changed.expressionAnchor,null);
+        assert.equal(changed.reused,undefined);
+        const nodes=Object.values(q.get('u:chat',changed.id,true).graph);
+        assert.ok(nodes.some(n=>n.class_type==='EmptyLatentImage'));
+        assert.ok(!nodes.some(n=>n.class_type==='LoadImage'));
+    }
+    const unchanged=q.enqueue('u:chat',{
+        ...base,animaVariant:'base',userPositive:'',userNegative:'',
+        localExpressions:true,requestKey:'unchanged-anchor',
+    });
+    assert.equal(unchanged.status,'done');
+    assert.equal(unchanged.asset.id,asset.id);
+});

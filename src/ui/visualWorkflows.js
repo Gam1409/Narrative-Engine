@@ -76,7 +76,7 @@ export function bindWorkflowLibrary(panel, settings, commit, signal, checkWorkfl
     }, {signal});
     panel.querySelector('[data-workflow-export]').addEventListener('click',()=>{
         const item=settings.visualUserWorkflows?.find(x=>x.id===list.value);
-        if(item) {download(item.id+'.json',item.recipe);notice('Recipe exported. It contains workflow parameters, not model files.');}
+        if(item) {download(item.id+'.json',item.recipe);notice('Generation preset exported. It contains workflow parameters, not model files.');}
     },{signal});
     panel.querySelector('[data-workflow-remove]').addEventListener('click',()=>{
         const id=list.value;
@@ -103,7 +103,7 @@ export function bindWorkflowLibrary(panel, settings, commit, signal, checkWorkfl
         const fields=dialog.querySelector('[data-bindings]');
         const mapping = [['positive','Scene prompt (required)','string'],['negative','Negative prompt','string'],['seed','Seed','number'],['checkpoint','Checkpoint filename','string'],['output','Image output node','output'],['lora','Character LoRA node (optional)','lora']];
         if(recipe) {
-            const summary=doc.createElement('p');summary.textContent=`Recipe includes ${recipe.bindings?.length || 0} bindings. Prompt inputs and templates can be edited below; other bindings, stages and LoRA slots are retained.`;fields.append(summary);
+            const summary=doc.createElement('p');summary.textContent=`Generation preset includes ${recipe.bindings?.length || 0} bindings. Prompt inputs and templates can be edited below; other bindings, stages and LoRA slots are retained.`;fields.append(summary);
         } else for(const [key,label,type] of mapping) {
             const wrapper=doc.createElement('label');wrapper.className='ne-field';wrapper.append(doc.createTextNode(label));
             const select=doc.createElement('select');select.name=key;select.required=['positive','output'].includes(key);
@@ -138,7 +138,7 @@ export function bindWorkflowLibrary(panel, settings, commit, signal, checkWorkfl
         mountWorkflowGraph(fields,graph,(source,node,input)=>{
             if(recipe) {
                 const editor=[...templates.values()].find(e=>e.source===source);
-                if(!editor) {dialog.querySelector('[data-error]').textContent='This recipe has no '+source+' binding. Import the API graph to add one.';return;}
+                if(!editor) {dialog.querySelector('[data-error]').textContent='This generation preset has no '+source+' binding. Import the API graph to add one.';return;}
                 editor.binding={...editor.binding,node,input};
                 editor.area.closest('label').firstChild.textContent=`${source} input template · ${node}.${input}`;
                 editor.area.focus();

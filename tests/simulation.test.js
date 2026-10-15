@@ -180,3 +180,39 @@ test('explicit author profile correction is journaled and replayed without chang
  await manager.selectBranch([]);assert.deepEqual(manager.snapshot(),original);
  assert.equal(manager.records[0].source,'author');assert.equal(manager.snapshot().simulation.characters.Anna.profile.traits.temperament,'reserved');
 });
+
+const developmentProposal=(eventId,direction='supports')=>({id:'boundaries',description:'Defends personal boundaries',context:'When pressured by Bob',eventId,direction,interpretation:'Spoke up despite fear',confidence:0.9});
+const developmentInput=(eventId,direction='supports')=>({policy:{...policy,innerLifeMode:'light'},events:[event(eventId)],characters:[{...reaction('Anna','anxiety',eventId),development:[developmentProposal(eventId,direction)]}]});
+test('development accumulates distinct turns, preserves baseline and keeps counterevidence',()=>{
+ let state=initial();
+ for(let i=0;i<5;i++) state=applyStateDelta(state,{simulation:developmentInput('d'+i)},{source:'director',messageIndex:i});
+ const d=state.simulation.characters.Anna.development.boundaries;
+ assert.equal(d.status,'established');assert.equal(d.evidence.length,5);assert.deepEqual(state.simulation.characters.Anna.profile,{});
+ assert.throws(()=>applyStateDelta(state,{simulation:{policy:{...policy,innerLifeMode:'light'},characters:[{...reaction('Anna','anxiety','d0'),development:[developmentProposal('d0')]}]}},{source:'director',messageIndex:6}),/already counted/);
+ state=applyStateDelta(state,{simulation:developmentInput('counter','contradicts')},{source:'director',messageIndex:6});
+ assert.equal(state.simulation.characters.Anna.development.boundaries.status,'contested');
+ assert.equal(state.simulation.characters.Anna.development.boundaries.evidence.length,6);
+ const own=innerLifeContext(state,[{name:'Anna'},{name:'Bob'}],{characterState:true,innerLifeMode:'light'},['Anna','Bob'],{name:'Anna'});
+ assert.equal(own.own.development[0].status,'contested');
+ assert.equal(innerLifeContext(state,[{name:'Bob'}],{characterState:true,innerLifeMode:'light'},['Bob'],{name:'Bob'}).own,null);
+});
+test('multiple event IDs from one turn do not manufacture lasting development',()=>{
+ let state=initial();
+ for(let i=0;i<5;i++)state=applyStateDelta(state,{simulation:developmentInput('same'+i)},{source:'director',messageIndex:1});
+ assert.equal(state.simulation.characters.Anna.development.boundaries.status,'hypothesis');
+ const unknown=developmentInput('private');unknown.events[0].visibleTo=['Bob'];
+ assert.throws(()=>applyStateDelta(state,{simulation:unknown},{source:'director',messageIndex:2}),/known to recipient/);
+ const unsupported=developmentInput('new');unsupported.characters[0].appraisals=[];
+ assert.throws(()=>applyStateDelta(state,{simulation:unsupported},{source:'director',messageIndex:2}),/personal appraisal/);
+});
+test('development rolls back with causal journal and returns on replay',async()=>{
+ const manager=new StateManager({chatFingerprint:'development',storage:new MemoryStorageAdapter()});
+ await manager.commit({state:initial(),checkpoints:[{messageIndex:-1,state:initial()}]});
+ for(let i=0;i<3;i++)await manager.applyDelta({simulation:developmentInput('r'+i)},{source:'director',messageIndex:i});
+ assert.equal(manager.state.simulation.characters.Anna.development.boundaries.status,'forming');
+ await manager.rebuild({throughMessageIndex:0});
+ assert.equal(manager.state.simulation.characters.Anna.development.boundaries.status,'hypothesis');
+ assert.equal(manager.state.simulation.characters.Anna.development.boundaries.evidence.length,1);
+ await manager.rebuild();
+ assert.equal(manager.state.simulation.characters.Anna.development.boundaries.status,'forming');
+});

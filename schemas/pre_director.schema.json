@@ -3,26 +3,99 @@
   "$id": "https://narrative-engine.local/schemas/pre_director.schema.json",
   "title": "PRE Director packet",
   "type": "object",
-  "required": ["scene", "must_preserve", "character_states", "active_threads", "scene_plan", "user_agency"],
+  "required": [
+    "scene",
+    "must_preserve",
+    "character_states",
+    "active_threads",
+    "scene_plan",
+    "user_agency"
+  ],
   "properties": {
-    "scene": { "type": "object" },
-    "must_preserve": { "type": "array", "items": { "type": "string" } },
-    "character_states": { "type": "object" },
-    "relevant_memories": { "type": "array" },
-    "active_threads": { "type": "array" },
-    "due_world_events": { "type": "array" },
+    "scene": {
+      "type": "object"
+    },
+    "must_preserve": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "character_states": {
+      "type": "object"
+    },
+    "relevant_memories": {
+      "type": "array"
+    },
+    "active_threads": {
+      "type": "array"
+    },
+    "due_world_events": {
+      "type": "array"
+    },
     "scene_plan": {
       "type": "object",
       "properties": {
-        "scene_goal": { "type": "string" },
-        "beats": { "type": "array", "items": { "type": "string" } },
-        "tone": { "type": "string" },
-        "avoid": { "type": "array", "items": { "type": "string" } }
+        "scene_goal": {
+          "type": "string"
+        },
+        "beats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tone": {
+          "type": "string"
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
       "additionalProperties": true
     },
-    "user_agency": { "type": "array", "items": { "type": "string" } },
-    "sprite_candidates": { "type": "object" }
+    "user_agency": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sprite_candidates": {
+      "type": "object"
+    },
+    "scene_observation": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": [
+            "opening",
+            "developing",
+            "resolving",
+            "possibly_closing",
+            "transition_observed",
+            "unknown"
+          ]
+        },
+        "stagnation": {
+          "type": "string",
+          "enum": [
+            "none",
+            "possible",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": true
 }

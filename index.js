@@ -4,7 +4,7 @@ import { registerEvents } from './src/events/registerEvents.js';
 import { installInterceptor, uninstallInterceptor } from './src/interceptors/narrativeEngineInterceptor.js';
 import { NarrativeRuntime } from './src/runtime/runtime.js';
 import { createUiActions, runtimeUiStatus } from './src/ui/actions.js';
-import { mountUi } from './src/ui/index.js';
+import { mountUi, settingChangePatch } from './src/ui/index.js';
 
 let runtime;
 let ui;
@@ -24,7 +24,7 @@ async function mountSettings(context, actions) {
     return mountUi({
         container, context, extensionName: 'third-party/Narrative-Engine', templateName: 'settings',
         settings: runtime.settings,
-        onSettingsChange: (next) => runtime.updateSettings(next),
+        onSettingsChange: (_next, { path, value }) => runtime.updateSettings(settingChangePatch(runtime.settings, path, value)),
         actions,
         status: runtimeUiStatus(runtime),
     });
@@ -38,7 +38,14 @@ export async function boot() {
         installInterceptor(runtime);
         const actions = createUiActions(runtime);
         ui = await mountSettings(context, actions);
-        const refreshUi = () => ui?.updateStatus(runtimeUiStatus(runtime));
+        let renderedSettings = runtime.settings;
+        const refreshUi = () => {
+            if (renderedSettings !== runtime.settings) {
+                renderedSettings = runtime.settings;
+                ui?.updateSettings(renderedSettings);
+            }
+            ui?.updateStatus(runtimeUiStatus(runtime));
+        };
         disposeDiagnostics = runtime.diagnostics.subscribe(refreshUi);
         disposeEvents = registerEvents(context, runtime, refreshUi);
         registerCommands(context, runtime, actions);

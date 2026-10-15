@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { migrateScopedMemories } = require('./memory-schema');
 const { STORAGE_SCHEMA, installStorage } = require('./storage');
 
 const SCHEMA = `
@@ -34,18 +35,19 @@ class Database {
         try {
             const hasMeta = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'").get();
             const version = hasMeta ? Number(this.db.prepare("SELECT value FROM schema_meta WHERE key='schemaVersion'").get()?.value || 1) : 0;
-            if (version > 2) throw new Error('Database schema is newer than supported');
-            if (version === 1 && config.databasePath !== ':memory:') {
-                this.backupPath = `${config.databasePath}.pre-v2-${Date.now()}.bak`;
+            if (version > 3) throw new Error('Database schema is newer than supported');
+            if (version > 0 && version < 3 && config.databasePath !== ':memory:') {
+                this.backupPath = `${config.databasePath}.pre-v3-${Date.now()}.bak`;
                 this.db.prepare('VACUUM INTO ?').run(this.backupPath);
             }
             this.db.transaction(() => {
                 this.db.exec(SCHEMA);
                 this.db.exec(STORAGE_SCHEMA);
+                migrateScopedMemories(this.db);
                 if (!this.db.prepare('PRAGMA table_info(embedding_cache)').all().some(c => c.name === 'vector_blob')) this.db.exec('ALTER TABLE embedding_cache ADD COLUMN vector_blob BLOB');
         try { this.db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS embedding_fts USING fts5(cache_key UNINDEXED, text)'); this.ftsAvailable = true; } catch { /* SQLite builds without FTS5 can still use vectors. */ }
 
-                this.db.prepare("UPDATE schema_meta SET value='2' WHERE key='schemaVersion'").run();
+                this.db.prepare("UPDATE schema_meta SET value='3' WHERE key='schemaVersion'").run();
             })();
         } catch (error) { this.db.close(); throw error; }
     }
@@ -66,7 +68,7 @@ class Database {
     saveMemory(memory) {
         this.ensureChat(memory.chatId);
         this.db.prepare(`INSERT INTO memories(id,chat_id,text,tags_json,importance) VALUES (?,?,?,?,?)
-            ON CONFLICT(id) DO UPDATE SET text=excluded.text,tags_json=excluded.tags_json,importance=excluded.importance,updated_at=CURRENT_TIMESTAMP`)
+            ON CONFLICT(chat_id,id) DO UPDATE SET text=excluded.text,tags_json=excluded.tags_json,importance=excluded.importance,updated_at=CURRENT_TIMESTAMP`)
             .run(memory.id, memory.chatId, memory.text, JSON.stringify(memory.tags || []), memory.importance ?? 0.5);
     }
     listMemories(chatId, limit = 500) { return this.db.prepare('SELECT id,text,tags_json,importance,updated_at FROM memories WHERE chat_id=? ORDER BY updated_at DESC LIMIT ?').all(chatId, limit).map((row) => ({ ...row, tags: JSON.parse(row.tags_json) })); }

@@ -13,6 +13,7 @@ function estimateTokens(text) {
 export function buildDirectorPacket(pre, tokenBudget = 1500) {
     const blocks = [
         section('PRIVATE CHARACTER GUIDANCE', pre.inner_life),
+        section('PRIVATE CHARACTER MEMORY', pre.private_memories),
         section('OBSERVABLE BEHAVIOR', pre.observations),
         section('SCENE', pre.scene),
         section('PRESENT', pre.present || pre.character_states),

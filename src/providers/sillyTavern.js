@@ -14,6 +14,7 @@ export class SillyTavernProvider {
         const timeout = withTimeout(request.signal, request.timeoutMs);
         const prompt = request.messages.map((message) => `${message.role.toUpperCase()}:\n${message.content}`).join('\n\n');
         try {
+            timeout.signal.throwIfAborted();
             const generated = this.context.generateRaw({ prompt, quietToLoud: false, signal: timeout.signal });
             const content = await Promise.race([
                 generated,
